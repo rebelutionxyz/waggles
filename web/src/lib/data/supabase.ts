@@ -445,6 +445,7 @@ const REACTIONS_ENABLED = false;
 const DISAPPEARING_ENABLED = false;
 const MUTE_ENABLED = false;
 const REPORTING_ENABLED = false;
+const PINS_ENABLED = false;
 
 const notInBuild = (what: string) => ({ ok: false as const, reason: `${what} is not available in this build.` });
 
@@ -791,6 +792,14 @@ export const supabaseTalkData: TalkData = {
   },
 
   async listPins(conversationId): Promise<TalkPin[]> {
+    // GATED (WAGGLES_F4). `comms_pins` is not in the fork bundle, and this read
+    // runs on EVERY thread open — so before this guard it threw
+    // "Could not find the table 'public.comms_pins'" every single time a
+    // conversation was opened. Caught by the F4 live run, not by any static
+    // check: F3 gated pins in the native client and missed this one.
+    // A read fails SOFT — no pins is the truthful answer from a backend with
+    // no pins table.
+    if (!PINS_ENABLED) return [];
     const client = db();
     const { data, error } = await client
       .from('comms_pins')
@@ -806,6 +815,8 @@ export const supabaseTalkData: TalkData = {
   },
 
   async togglePin(conversationId, messageId, pinned): Promise<ActionResult> {
+    // A WRITE fails LOUD: never report a pin as saved when no RPC exists.
+    if (!PINS_ENABLED) return notInBuild('Pinned messages');
     const client = db();
     // 50-pin cap (KNOW_SPEC/TALK_GROUPS1): comms_pin enforces it server-side;
     // a rejection here is returned as `reason`, never swallowed to console.

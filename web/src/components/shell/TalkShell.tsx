@@ -52,6 +52,21 @@ const NAV: { id: string; label?: string; items: NavItem[] }[] = [
   },
 ];
 
+/*
+ * Which nav item is current (WAGGLES_F4).
+ *
+ * A plain `pathname === href` left NO item highlighted on a conversation
+ * route: `/c/<id>` equals neither `/` nor `/chat`, so opening a thread —
+ * the thing you spend all your time in — silently dropped the sidebar
+ * highlight. Caught in the F4 live run. Messages owns the conversation
+ * routes; every other item still matches exactly, so `/` does not light up
+ * for `/chat`.
+ */
+function isActive(href: string, pathname: string): boolean {
+  if (href === '/') return pathname === '/' || pathname.startsWith('/c/');
+  return pathname === href;
+}
+
 export function TalkShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '/';
@@ -88,8 +103,8 @@ export function TalkShell({ children }: { children: ReactNode }) {
                 <button
                   key={item.id}
                   type="button"
-                  className={pathname === item.href ? 'waggle-nav-item is-active' : 'waggle-nav-item'}
-                  aria-current={pathname === item.href ? 'page' : undefined}
+                  className={isActive(item.href, pathname) ? 'waggle-nav-item is-active' : 'waggle-nav-item'}
+                  aria-current={isActive(item.href, pathname) ? 'page' : undefined}
                   onClick={() => router.push(item.href)}
                 >
                   {item.icon}
