@@ -35,3 +35,6 @@ yarn-error.*
 # PUBLIC and REPORT.md is internal ops narrative. Kept local, never published;
 # the canonical copy is ops_reports in the database, which is what LEAD reads.
 REPORT.md
+
+# TypeScript incremental build cache
+*.tsbuildinfo
