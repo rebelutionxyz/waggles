@@ -18,7 +18,7 @@ export default function SoonPage() {
     <Page>
       <div className={styles.wrap}>
         <span className="eyebrow">Coming online</span>
-        <h1 className={styles.title}>This corner of TALK is being built</h1>
+        <h1 className={styles.title}>This corner of Waggles is being built</h1>
         <p className={styles.sub}>
           Messages is live now - .chat is a reserved door, and this destination lands in a
           later pass.

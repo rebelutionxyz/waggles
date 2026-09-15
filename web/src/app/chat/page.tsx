@@ -17,11 +17,11 @@ export default function ChatComingOnlinePage() {
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
-        <span className="eyebrow">rebelution.chat - reserved door</span>
+        <span className="eyebrow">Reserved surface</span>
         <h1 className={styles.title}>Open / Random is coming online</h1>
         <p className={styles.sub}>
-          The meet-new-bees mode of TALK - roulette-style matching and public rooms, planned on the
-          same messaging engine as your DMs.
+          Meet-new-people mode - roulette-style matching and public rooms, planned on the same
+          messaging engine as your one-to-one threads. Not built yet.
         </p>
         <ul className={styles.list}>
           <li>Roulette queue - the backing table already exists; the matching UX ships next.</li>

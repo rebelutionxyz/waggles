@@ -32,9 +32,9 @@ if (process.env.NODE_ENV === 'production' && DATA_SOURCE !== 'live') {
         ? 'unset'
         : `"${process.env.NEXT_PUBLIC_DATA_SOURCE}"`) +
       ', so this production build would serve FIXTURE data. ' +
-      'Set NEXT_PUBLIC_DATA_SOURCE=live in the Railway service variables and redeploy ' +
-      '(the value is inlined at build time - changing it without a redeploy does nothing). ' +
-      'See DEPLOY AMENDMENT v2 in HONEYCOMB/CLAUDE.md.',
+      'Set NEXT_PUBLIC_DATA_SOURCE=live in your deployment environment and rebuild ' +
+      '(the value is inlined at build time - changing it without a rebuild does nothing). ' +
+      'See web/.env.example.',
   );
 }
 

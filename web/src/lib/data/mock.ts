@@ -103,7 +103,7 @@ const THREADS: Record<string, TalkMessage[]> = {
       conversationId: HONEY,
       senderBeeId: 'bee-honey',
       senderHandle: 'honeykeeper',
-      body: "Hey - TALK's messaging home is live in mock mode, want to see it?",
+      body: "Hey - Waggles is running in mock mode, want to see it?",
       undecryptable: false,
       keyPending: false,
       createdAt: iso(30),

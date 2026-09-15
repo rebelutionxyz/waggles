@@ -298,7 +298,7 @@ export function Composer({ conversationId, conversation, variant, onSent }: Comp
         </div>
       )}
       {!canSend && variant === 'centered' && (
-        <p className={styles.disabledNote}>Sending needs a browser - open rebelution.talk directly.</p>
+        <p className={styles.disabledNote}>Sending needs a browser.</p>
       )}
       {sendError && <p className={styles.disabledNote}>{sendError}</p>}
     </div>

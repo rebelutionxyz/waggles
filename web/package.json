@@ -2,7 +2,7 @@
   "name": "waggles-web",
   "version": "0.1.0",
   "private": true,
-  "description": "REBELUTION.talk - the TALK astra (platform surface slug `talk`), served standalone at rebelution.talk. The door + astra skin over the existing in-Manual messenger; .chat and .tel are reserved sibling doors.",
+  "description": "Waggles (web) - end-to-end encrypted one-to-one messages you host yourself.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

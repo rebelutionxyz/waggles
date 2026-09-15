@@ -24,14 +24,14 @@ export function Door() {
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
-        <span className="eyebrow">{BRAND.domain}</span>
+        <span className="eyebrow">{BRAND.selfHostedLabel}</span>
         <h1 className={styles.title}>{BRAND.name}</h1>
         <p className={styles.sub}>{BRAND.description}</p>
 
-        <div className={styles.doors}>
-          <span className={styles.doorChip}>.talk - messages</span>
-          <span className={styles.doorChip}>.chat - open/random</span>
-        </div>
+        {/* WAGGLES_F7: the two ".talk / .chat door" chips are gone. They
+            advertised sibling constellation doors that do not exist in a
+            self-hosted Waggles, so on this door they were decoration that
+            promised a product shape the build does not have. */}
 
         {/* No explicit action needed: TalkHome's own useSession() shares the
             same Supabase client SignInForm just signed in on, so its
