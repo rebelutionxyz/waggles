@@ -37,7 +37,12 @@ export function SignInScreen({ next }: { next: string }) {
   return (
     <div className={styles.wrap}>
       <span className="eyebrow">Sign in</span>
-      <h1 className={styles.title}>Sign in to REBELUTION.talk</h1>
+      {/* WAGGLES_F4, authorized by WAGGLES_F4-ACK as a narrow exception to the
+          F7 copy boundary: this said "Sign in to REBELUTION.talk", a FALSE
+          product claim sitting directly above the line telling the Bee their
+          account lives on this Waggles instance only. The rest of the
+          REBELUTION-facing copy remains F7’s to handle. */}
+      <h1 className={styles.title}>Sign in to Waggles</h1>
       {/* WAGGLES_F3: this used to read "The same account works across every
           REBELUTION site" — true of the constellation build, and FALSE here.
           The fork has its own project and its own auth realm; an account on
