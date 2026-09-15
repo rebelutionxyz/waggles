@@ -30,3 +30,8 @@ yarn-error.*
 
 # Next.js build output (web/)
 .next/
+
+# The rail report of record lives at the workdir root, but this repo is
+# PUBLIC and REPORT.md is internal ops narrative. Kept local, never published;
+# the canonical copy is ops_reports in the database, which is what LEAD reads.
+REPORT.md
