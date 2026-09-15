@@ -19,8 +19,11 @@ import {
  * shared e2ee core. Message bodies are sealed under a per-conversation key before
  * they ever reach `comms_send`; the server stores only ciphertext.
  *
- * Scope note (v1 native): text, reactions, groups, blocks, presence,
- * typing, disappearing-messages, safety numbers, and realtime are ported. Voice
+ * Scope note (v1 fork): text, blocks, typing, safety numbers and realtime are
+ * ported AND live. Reactions, groups, presence, disappearing messages, mute,
+ * reporting and pins are ported but GATED OFF — the fork bundle deliberately
+ * ships none of their RPCs (WAGGLES_F3-ACK: v1 MVP is E2EE 1:1 text, keep the
+ * self-hostable surface minimal). See the capability flags below. Voice
  * messages, media object-URL playback, and LiveKit rooms/roulette (all of which
  * lean on browser Blob/URL/getUserMedia) are intentionally deferred — see README.
  * PINS are ported but GATED OFF against the fork backend, which does not create
@@ -203,7 +206,10 @@ export async function getConversation(conversationId: string): Promise<Conversat
 }
 
 const MESSAGE_COLUMNS =
-  'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, created_at, deleted_at, edited_at, expires_at, reply_to_message_id, comms_reactions(bee_id, emoji)';
+  // No `comms_reactions` embed: reactions are gated off (WAGGLES_F3-ACK) and
+  // the table is not in the fork bundle, so embedding it would fail the WHOLE
+  // message query — i.e. reading any conversation at all.
+  'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, created_at, deleted_at, edited_at, expires_at, reply_to_message_id';
 
 async function rowsToMessages(conversationId: string, rows: Row[]): Promise<CommsMessage[]> {
   const bee = await myBee().catch(() => null);
@@ -326,7 +332,33 @@ export async function unsendMessage(messageId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Capabilities absent from the fork backend (WAGGLES_F3-ACK ruling) ──
+//
+// The fork ships a deliberately MINIMAL self-hostable schema. Nine RPCs this
+// client was ported with are NOT in `db/waggles-core-v0.1/`, each excluded on
+// purpose with a named owning pass: groups (not MVP), reactions, disappearing
+// messages, mute, report (moderation is an operator policy - on a self-hosted
+// instance the operator IS the user), and presence.
+//
+// v1 MVP is E2EE 1:1 TEXT. LEAD ruled: GATE THE CLIENT, do not widen the
+// bundle. Every table a self-hoster must run is a cost paid by everyone who
+// runs their own Waggles.
+//
+// Same asymmetry the pins gate uses, for the same reason: a READ fails soft
+// (absent data is honestly "none"), a WRITE fails LOUD (never tell a Bee
+// something was saved when no RPC existed to save it). Flip these when a
+// bundle version ships the functions.
+export const GROUPS_ENABLED = false;
+export const REACTIONS_ENABLED = false;
+export const DISAPPEARING_ENABLED = false;
+export const MUTE_ENABLED = false;
+export const REPORTING_ENABLED = false;
+export const PRESENCE_ENABLED = false;
+
+const NOT_IN_BUILD = (what: string) => new Error(`${what} is not available in this build.`);
+
 export async function toggleReaction(messageId: string, emoji: string): Promise<void> {
+  if (!REACTIONS_ENABLED) throw NOT_IN_BUILD('Reactions');
   const { error } = await req().rpc('comms_react', { p_message_id: messageId, p_emoji: emoji });
   if (error) throw error;
 }
@@ -351,6 +383,7 @@ export async function startDirect(otherBeeId: string): Promise<string> {
 }
 
 export async function createGroup(title: string, memberBeeIds: string[]): Promise<string> {
+  if (!GROUPS_ENABLED) throw NOT_IN_BUILD('Group conversations');
   const { data, error } = await req().rpc('comms_create_group', {
     p_title: title,
     p_member_bees: memberBeeIds,
@@ -368,6 +401,7 @@ export async function createGroup(title: string, memberBeeIds: string[]): Promis
 }
 
 export async function addGroupMember(conversationId: string, beeId: string): Promise<void> {
+  if (!GROUPS_ENABLED) throw NOT_IN_BUILD('Group conversations');
   const { error } = await req().rpc('comms_group_add', {
     p_conversation_id: conversationId,
     p_bee_id: beeId,
@@ -389,6 +423,7 @@ export async function addGroupMember(conversationId: string, beeId: string): Pro
 }
 
 export async function removeGroupMember(conversationId: string, beeId: string): Promise<void> {
+  if (!GROUPS_ENABLED) throw NOT_IN_BUILD('Group conversations');
   const { error } = await req().rpc('comms_group_remove', {
     p_conversation_id: conversationId,
     p_bee_id: beeId,
@@ -397,6 +432,7 @@ export async function removeGroupMember(conversationId: string, beeId: string): 
 }
 
 export async function setGroupAddPolicy(conversationId: string, allowed: boolean): Promise<void> {
+  if (!GROUPS_ENABLED) throw NOT_IN_BUILD('Group conversations');
   const { error } = await req().rpc('comms_group_set_add_policy', {
     p_conversation_id: conversationId,
     p_allowed: allowed,
@@ -410,6 +446,7 @@ export async function markRead(conversationId: string): Promise<void> {
 }
 
 export async function setDisappearing(conversationId: string, seconds: number | null): Promise<void> {
+  if (!DISAPPEARING_ENABLED) throw NOT_IN_BUILD('Disappearing messages');
   const { error } = await req().rpc('comms_set_disappearing', {
     p_conversation_id: conversationId,
     p_seconds: seconds,
@@ -418,6 +455,7 @@ export async function setDisappearing(conversationId: string, seconds: number | 
 }
 
 export async function setConversationMuted(conversationId: string, muted: boolean): Promise<void> {
+  if (!MUTE_ENABLED) throw NOT_IN_BUILD('Muting a conversation');
   const { error } = await req().rpc('comms_set_mute', { p_conversation_id: conversationId, p_muted: muted });
   if (error) throw error;
 }
@@ -486,6 +524,7 @@ export async function unblockBee(beeId: string): Promise<void> {
   if (error) throw error;
 }
 export async function reportBee(beeId: string, reason: string, conversationId?: string | null): Promise<void> {
+  if (!REPORTING_ENABLED) throw NOT_IN_BUILD('Reporting');
   const { error } = await req().rpc('comms_report', {
     p_bee: beeId,
     p_reason: reason,
@@ -496,6 +535,8 @@ export async function reportBee(beeId: string, reason: string, conversationId?: 
 
 // ── Presence ──
 export async function presencePing(): Promise<void> {
+  // READ-shaped and fire-and-forget: absent presence is simply no presence.
+  if (!PRESENCE_ENABLED) return;
   const { error } = await req().rpc('bee_presence_ping');
   if (error) throw error;
 }
@@ -606,7 +647,6 @@ export function subscribeConversation(
       { event: '*', schema: 'public', table: 'comms_messages', filter: `conversation_id=eq.${conversationId}` },
       () => onChange(),
     )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'comms_reactions' }, () => onChange())
     .subscribe();
   return {
     close: () => {

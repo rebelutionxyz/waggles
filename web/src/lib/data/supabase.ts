@@ -70,7 +70,6 @@ const TALK_MEDIA_UPLOAD_TYPE = 'application/octet-stream';
  * per-Bee `library/{bee_id}/*` shelf every Astra's Studio picker already
  * reads from - no new bucket, matching the dispatch's own instruction.
  */
-const STUDIO_MEDIA_BUCKET = 'creator-media';
 
 /** Minimal mime->extension map for a saved Studio copy's storage path -
     mirrors TheMANUAL.tech's media.ts `extFor`, scoped to the mime types
@@ -223,11 +222,23 @@ function normKind(k: string): ConversationKind {
 }
 
 /** A `bees` embed can come back as an object or a one-item array depending on the FK hint. */
-function oneBee(row: unknown): { handle: string; name: string | null } | null {
+/*
+ * The embedded identity row (WAGGLES_F3).
+ *
+ * `profiles`, NOT `bees`: the fork bundle renames that table on purpose
+ * (`profiles` carries no email) and every `bee_id` references
+ * `public.profiles(id)`, so that is what PostgREST embeds on. The column is
+ * `display_name`, mapped to `name` here so callers are unchanged.
+ *
+ * WAGGLES_F2 fixed this same break in the native client; the web client had it
+ * too and it survived that sweep for the same reason — a PostgREST embed is
+ * not a `.from()` call, so neither grep finds it.
+ */
+function oneProfile(row: unknown): { handle: string; name: string | null } | null {
   const b = Array.isArray(row) ? row[0] : row;
   if (!b || typeof b !== 'object') return null;
-  const rec = b as { handle?: string; name?: string | null };
-  return rec.handle ? { handle: rec.handle, name: rec.name ?? null } : null;
+  const rec = b as { handle?: string; display_name?: string | null };
+  return rec.handle ? { handle: rec.handle, name: rec.display_name ?? null } : null;
 }
 
 async function myBeeId(client: SupabaseClient): Promise<string | null> {
@@ -242,7 +253,7 @@ interface ParticipantRow {
   last_read_at: string | null;
   muted: boolean | null;
   role: string | null;
-  bees: unknown;
+  profiles: unknown;
 }
 
 /** Participants (+ handle/name/role) for a batch of conversation ids, grouped. */
@@ -254,11 +265,11 @@ async function participantsByConversation(
   if (ids.length === 0) return out;
   const { data, error } = await client
     .from('comms_participants')
-    .select('conversation_id, bee_id, last_read_at, muted, role, bees(handle, name)')
+    .select('conversation_id, bee_id, last_read_at, muted, role, profiles(handle, display_name)')
     .in('conversation_id', ids);
   if (error) fail(error, 'Could not load conversation participants.');
   for (const row of (data ?? []) as unknown as ParticipantRow[]) {
-    const bee = oneBee(row.bees);
+    const bee = oneProfile(row.profiles);
     const list = out.get(row.conversation_id) ?? [];
     list.push({
       beeId: row.bee_id,
@@ -412,6 +423,31 @@ async function ensureConversationKeySynced(
   }
 }
 
+/*
+ * Capabilities absent from the fork backend (WAGGLES_F3-ACK ruling).
+ *
+ * Eight RPCs this client was ported with are NOT in `db/waggles-core-v0.1/` -
+ * groups, reactions, disappearing messages, mute and report - each excluded
+ * from the bundle on purpose with a named owning pass. v1 MVP is E2EE 1:1
+ * TEXT, and every table a self-hoster must run is a cost paid by everyone who
+ * runs their own Waggles, so LEAD ruled: GATE THE CLIENT, do not widen the
+ * bundle.
+ *
+ * These return the SAME honest `{ok:false, reason}` shape every other failure
+ * on this seam returns, so the UI already knows how to surface them - it has
+ * no special case for "feature missing", just a reason it can show. Never
+ * silently succeed: telling a Bee their message was pinned, reaction saved or
+ * group created when no RPC existed to do it is the one outcome worse than an
+ * error. Flip these when a bundle version ships the functions.
+ */
+const GROUPS_ENABLED = false;
+const REACTIONS_ENABLED = false;
+const DISAPPEARING_ENABLED = false;
+const MUTE_ENABLED = false;
+const REPORTING_ENABLED = false;
+
+const notInBuild = (what: string) => ({ ok: false as const, reason: `${what} is not available in this build.` });
+
 export const supabaseTalkData: TalkData = {
   async listConversations(filter: TalkFilter = {}) {
     const client = db();
@@ -471,7 +507,9 @@ export const supabaseTalkData: TalkData = {
     const { data, error } = await client
       .from('comms_messages')
       .select(
-        'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, deleted_at, edited_at, created_at, comms_reactions(bee_id, emoji)',
+        // No `comms_reactions` embed: reactions are gated off and the table is
+        // not in the fork bundle, so embedding it fails the whole query.
+        'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, deleted_at, edited_at, created_at',
       )
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
@@ -613,13 +651,13 @@ export const supabaseTalkData: TalkData = {
     if (!clean) return null;
     const client = db();
     const { data, error } = await client
-      .from('bees')
-      .select('id, handle, name')
+      .from('profiles')
+      .select('id, handle, display_name')
       .eq('handle', clean)
       .maybeSingle();
     if (error) fail(error, 'Could not look up that handle.');
-    const row = data as { id: string; handle: string; name: string | null } | null;
-    return row ? { beeId: row.id, handle: row.handle, name: row.name, role: 'member' } : null;
+    const row = data as { id: string; handle: string; display_name: string | null } | null;
+    return row ? { beeId: row.id, handle: row.handle, name: row.display_name, role: 'member' } : null;
   },
 
   async startDirect(otherBeeId): Promise<StartDirectResult> {
@@ -655,29 +693,26 @@ export const supabaseTalkData: TalkData = {
     return { ok: true, conversationId };
   },
 
+  /*
+   * THE FORK HAS NO FOLLOW GRAPH (WAGGLES_F3).
+   *
+   * This read `bee_follows` and then `bees`, neither of which exists in
+   * `db/waggles-core-v0.1/`. The bundle says why in its own RLS notes: a fork
+   * resolves people by HANDLE LOOKUP, because it has no follow graph to
+   * resolve them through. `bee_follows` is a constellation social-graph table,
+   * and the plan's dependency verdict is REPLACE bees/bee_follows with minimal
+   * `profiles(id, handle, public_key)`.
+   *
+   * So this returns empty rather than querying two absent tables: an empty
+   * follow list is the truthful answer for a backend that has no concept of
+   * following. Start-a-chat goes through `findBeeByHandle` above, which works.
+   */
   async listFollows(): Promise<TalkFollow[]> {
-    const client = db();
-    const myId = await myBeeId(client);
-    if (!myId) return [];
-    const { data, error } = await client
-      .from('bee_follows')
-      .select('followed_bee_id')
-      .eq('follower_bee_id', myId);
-    if (error) fail(error, 'Could not load who you follow.');
-    const ids = Array.from(
-      new Set(((data ?? []) as { followed_bee_id: string }[]).map((r) => r.followed_bee_id)),
-    );
-    if (!ids.length) return [];
-    const { data: bs, error: bErr } = await client.from('bees').select('id, handle, name').in('id', ids);
-    if (bErr) fail(bErr, 'Could not load who you follow.');
-    return ((bs ?? []) as { id: string; handle: string; name: string | null }[]).map((b) => ({
-      beeId: b.id,
-      handle: b.handle,
-      name: b.name,
-    }));
+    return [];
   },
 
   async createGroup(title, memberBeeIds): Promise<StartDirectResult> {
+    if (!GROUPS_ENABLED) return notInBuild('Group conversations');
     const clean = title.trim();
     if (!clean) return { ok: false, reason: 'Give the group a name.' };
     const client = db();
@@ -699,6 +734,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async addGroupMember(conversationId, beeId): Promise<ActionResult> {
+    if (!GROUPS_ENABLED) return notInBuild('Group conversations');
     const client = db();
     const myId = await myBeeId(client);
     if (!myId) return { ok: false, reason: 'Sign in to manage this group.' };
@@ -722,6 +758,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async removeGroupMember(conversationId, beeId): Promise<ActionResult> {
+    if (!GROUPS_ENABLED) return notInBuild('Group conversations');
     const client = db();
     const { error } = await client.rpc('comms_group_remove', {
       p_conversation_id: conversationId,
@@ -732,6 +769,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async setGroupAddPolicy(conversationId, allowed): Promise<ActionResult> {
+    if (!GROUPS_ENABLED) return notInBuild('Group conversations');
     const client = db();
     const { error } = await client.rpc('comms_group_set_add_policy', {
       p_conversation_id: conversationId,
@@ -742,6 +780,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async toggleReaction(messageId, _conversationId, emoji): Promise<ActionResult> {
+    if (!REACTIONS_ENABLED) return notInBuild('Reactions');
     const client = db();
     // comms_react TOGGLES server-side (reference: lib/comms.ts:toggleReaction) -
     // this call always just asks for `emoji` on `messageId`; add vs. remove is
@@ -798,22 +837,27 @@ export const supabaseTalkData: TalkData = {
     return { ok: true };
   },
 
-  async notifyMentions(conversationId, messageId, beeIds): Promise<void> {
-    if (!beeIds.length) return;
-    const client = db();
-    // Best-effort, mirrors comms.ts:notifyMentions - never blocks the send it follows.
-    try {
-      await client.rpc('comms_mention_notify', {
-        p_conversation_id: conversationId,
-        p_message_id: messageId,
-        p_bee_ids: beeIds,
-      });
-    } catch {
-      /* best-effort */
-    }
+  /*
+   * NO MENTION NOTIFICATIONS IN THE FORK (WAGGLES_F3).
+   *
+   * `comms_mention_notify` is excluded from the bundle for a compound reason
+   * its own header gives: it needs groups AND the `notifications` inbox, and
+   * the fork strips `notifications` outright. So there is nothing to notify
+   * INTO — unread in the fork is `last_read_at` vs `last_message_at`, which
+   * needs no side table and no RPC.
+   *
+   * This was already best-effort inside a try/catch, so it would not have
+   * crashed a send — it would just have fired a doomed RPC on every message
+   * containing an @handle. Returning early is the honest version of the same
+   * no-op. Mentions still RENDER (MessageBubble bolds a participant's handle);
+   * they simply do not push.
+   */
+  async notifyMentions(_conversationId, _messageId, _beeIds): Promise<void> {
+    return;
   },
 
   async setMuted(conversationId, muted): Promise<ActionResult> {
+    if (!MUTE_ENABLED) return notInBuild('Muting a conversation');
     const client = db();
     const { error } = await client.rpc('comms_set_mute', { p_conversation_id: conversationId, p_muted: muted });
     if (error) return { ok: false, reason: error.message?.trim() || 'Could not change notifications for this chat.' };
@@ -821,6 +865,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async setDisappearing(conversationId, seconds): Promise<ActionResult> {
+    if (!DISAPPEARING_ENABLED) return notInBuild('Disappearing messages');
     const client = db();
     const { error } = await client.rpc('comms_set_disappearing', {
       p_conversation_id: conversationId,
@@ -852,6 +897,7 @@ export const supabaseTalkData: TalkData = {
   },
 
   async reportBee(beeId, reason, conversationId): Promise<ActionResult> {
+    if (!REPORTING_ENABLED) return notInBuild('Reporting');
     if (!reason.trim()) return { ok: false, reason: 'Say why you are reporting this Bee.' };
     const client = db();
     const { error } = await client.rpc('comms_report', {
@@ -898,7 +944,25 @@ export const supabaseTalkData: TalkData = {
     return URL.createObjectURL(blob);
   },
 
+  /*
+   * SAVE = A PLAIN DEVICE DOWNLOAD (dispatch task 3: "studio-save degrades to
+   * a plain device download (no Studio in the fork)").
+   *
+   * The constellation version decrypted the file, uploaded the plaintext to
+   * the `creator-media` bucket and inserted a `media_assets` row — i.e. it
+   * put a decrypted copy of an E2EE attachment BACK ON A SERVER, which only
+   * made sense because that server was the same Studio the Bee already owned.
+   * The fork has no Studio, no `creator-media` bucket and no `media_assets`
+   * table, and re-uploading plaintext to a self-hosted box would quietly undo
+   * the end-to-end property for that file.
+   *
+   * So saving hands the bytes to the browser and nothing leaves the device.
+   * The decrypt path is unchanged and still fails honestly.
+   */
   async saveMediaToStudio(conversationId, media): Promise<ActionResult> {
+    if (typeof window === 'undefined') {
+      return { ok: false, reason: 'Saving a file needs a browser.' };
+    }
     const client = db();
     const myId = await myBeeId(client);
     if (!myId) return { ok: false, reason: 'Sign in to save this file.' };
@@ -911,31 +975,18 @@ export const supabaseTalkData: TalkData = {
     const blob = new Blob([plain.slice().buffer as ArrayBuffer], {
       type: media.mime || 'application/octet-stream',
     });
-    const path = `library/${myId}/${crypto.randomUUID()}.${extForStudioMime(media.mime)}`;
-    const { error: upErr } = await client.storage
-      .from(STUDIO_MEDIA_BUCKET)
-      .upload(path, blob, { contentType: media.mime || 'application/octet-stream', upsert: false });
-    if (upErr) return { ok: false, reason: upErr.message?.trim() || 'Could not save that file to Studio.' };
-    const { error } = await client.from('media_assets').insert({
-      bee_id: myId,
-      kind: media.kind,
-      bucket: STUDIO_MEDIA_BUCKET,
-      storage_path: path,
-      file_name: media.name,
-      mime_type: media.mime || 'application/octet-stream',
-      byte_size: blob.size,
-      duration_seconds: media.dur ?? null,
-      // TALK_MF v0.6-QUESTION's own wording: a deliberate save brings a file
-      // IN from outside the Library, the same shape as a MiniWaves import -
-      // matches media_assets_source_check (no 'bee-save'/'talk' value exists,
-      // and none was added; 'import' is the closest exact fit already there).
-      source: 'import',
-    });
-    if (error) {
-      // No orphaned storage object on a failed metadata insert - same
-      // cleanup TheMANUAL.tech's own uploadToLibrary does.
-      await client.storage.from(STUDIO_MEDIA_BUCKET).remove([path]);
-      return { ok: false, reason: error.message?.trim() || 'Could not save that file to Studio.' };
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = media.name || `waggles-file.${extForStudioMime(media.mime)}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      // Revoke on the next tick: revoking synchronously can cancel the
+      // download the click just started in some browsers.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     }
     return { ok: true };
   },
