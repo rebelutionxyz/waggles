@@ -1,0 +1,21 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 380px;
+  margin: 0 auto;
+  padding-top: var(--space-8);
+}
+.title {
+  font-size: var(--size-title-l);
+}
+.sub {
+  color: var(--text-muted);
+  font-size: var(--size-body-m);
+  line-height: var(--lh-relax);
+}
+.link {
+  font-size: var(--size-body-s);
+  font-weight: var(--w-semibold);
+  color: var(--accent-hover);
+}

@@ -1,0 +1,241 @@
+/* ============================================================
+   REBELUTION.talk - token layer.
+   The shared HONEYCOMB design system (ported 1:1 from the Justice design
+   system export, same file the REBELUTION.vote template ships). Values are
+   exact - do NOT invent values and do NOT introduce a second palette.
+
+   WHITEBOX_TALK1 - this was a light-theme port never dark-remapped, same
+   root cause WHITEBOX_NEWS1 found and fixed in REBELUTION.news: talk
+   renders inside @honeycomb/shell's always-dark .astra-shell chrome and
+   owns no light surface of its own, so the ported light neutrals produced
+   white cards/inputs floating on the dark shell ground. Neutrals below
+   repointed to the same dark-ground literals REBELUTION.org's
+   KNOW_DARKSWEEP1 remap uses. --white is left alone: its remaining readers
+   (button/bubble text on a colored accent fill) want actually-white text,
+   not a surface tone - see --text-on-accent below for the one place that
+   needed near-black instead. */
+
+:root {
+  --white:      #FFFFFF;
+  --paper-50:   #07080A; /* app canvas */
+  --paper-100:  #0E141B; /* card surface / sunken wells */
+  --paper-200:  #151D26; /* deeper wells / hover */
+  --line:       #222B35; /* hairline */
+  --line-strong:#2E3945;
+  --line-heavy: #3D4A58;
+
+  --ink-900:    #F4F7FA;
+  --ink-800:    #E2E9F0;
+  --ink-700:    #CBD5DF;
+  --ink-500:    #A8B4C0;
+  --slate-400:  #93A0AD;
+  --slate-300:  #7C8894;
+  --slate-200:  #5C6773;
+
+  --navy-900:   #0C1826;
+  --navy-800:   #122740;
+  --navy-700:   #1B3A5B;
+  --navy-600:   #244B72;
+  --navy-500:   #2F6092;
+  --navy-300:   #7C97B3;
+  --navy-100:   #DCE6F0;
+
+  --gold-700:   #8A6A1E;
+  --gold-600:   #B8902F;
+  --gold-400:   #D4B65E;
+  --gold-100:   #F0E6C8;
+
+  --honey-600:  #D9881C;
+  --honey-500:  #E5A23A;
+  --honey-300:  #F0C684;
+  --honey-100:  #FBEACF;
+
+  --silver-500: #9AA6B2;
+  --silver-300: #C7CFD9;
+
+  /* WHITEBOX_TALK1 - measured as note text (Door.module.css .noteOk) at
+     ~3.96:1 against the dark ground, under AA. Lifted to the same
+     dark-ground value REBELUTION.org's KNOW_DARKSWEEP1 remap uses for this
+     rung of the ladder (hue kept, luminance raised); the -tint value below
+     is a light fill this app never reads as a surface, so left as-is. */
+  --status-sourced:   #4FBF8B;
+  --status-accepted:  #2D6CB5;
+  --status-emerging:  #D9881C;
+  --status-fringe:    #C2562B;
+  --status-unsourced: #7E8A97;
+  --status-sourced-tint:   #DCEDE4;
+  --status-accepted-tint:  #DCE8F5;
+  --status-emerging-tint:  #FBEACF;
+  --status-fringe-tint:    #F6DFD4;
+  --status-unsourced-tint: #E7ECF0;
+
+  --alert-700: #7E241A;
+  /* WHITEBOX_TALK1 - measured as note text (Door.module.css .noteError) at
+     ~3.54:1 against the dark ground, under AA. Lifted to the dark-ground
+     value org's remap uses; --alert-700 stays as-is - its one reader
+     (--danger-hover) is unused in this app. */
+  --alert-600: #E8897A;
+  --alert-100: #F4DAD3;
+
+  --bg-canvas:      var(--paper-50);
+  --bg-sunken:      var(--paper-100);
+  /* WHITEBOX_TALK1 - was var(--white), a literal #FFFFFF fill: every
+     card/panel/row reading these tokens was a white box on the dark shell
+     ground. Repointed to the dark neutrals above. */
+  --surface-card:   var(--paper-100);
+  --surface-raised: var(--paper-200);
+  --surface-inset:  var(--paper-200);
+  --surface-navy:   var(--navy-800);
+
+  --text-strong:    var(--ink-900);
+  --text-body:      var(--ink-800);
+  --text-muted:     var(--slate-400);
+  --text-faint:     var(--slate-300);
+  --text-on-navy:   #E8EEF4;
+  /* WHITEBOX_TALK1 - the accent fill below is now the astra's cyan
+     (#00b1d7), not the old dark navy; white text measures ~2.5:1 on it
+     (fails AA). Near-black instead, same --on-gold-text shape .org/news
+     use for their own light-fill accents. */
+  --text-on-accent: #071013;
+
+  --border-hair:    var(--line);
+  --border-rule:    var(--line-strong);
+  --border-strong:  var(--line-heavy);
+
+  /* WHITEBOX_TALK1 - the astra color (talk, locked in shared/shell's
+     astraTokens.ts: accent #00b1d7 / accentDim #01647b / accentBg
+     #0a161a) for text/accents only, per the owner's no-white-boxes rule.
+     Was var(--navy-700): the Justice brand navy this file was ported
+     from wholesale - the wrong astra's color. */
+  --talk-accent:     #00B1D7;
+  --talk-accent-dim: #01647B;
+  --talk-accent-bg:  #0A161A;
+  --accent:          var(--talk-accent);
+  --accent-hover:    color-mix(in srgb, var(--talk-accent) 80%, white);
+  --accent-tint:     var(--talk-accent-bg);
+  --gold:           var(--gold-600);
+  --honey:          var(--honey-600);
+
+  --danger:         var(--alert-600);
+  --danger-hover:   var(--alert-700);
+  --focus-ring:     var(--talk-accent);
+
+  --on-navy-nav:      #AEC0D4;
+  --on-navy-icon:     #7E93A9;
+  --on-navy-eyebrow:  #5E748C;
+  --on-navy-input:    #E8EEF4;
+  --on-navy-body:     #C9D6E4;
+  --on-navy-body-dim: #9DB1C7;
+  --on-navy-rule:     #C9A227;
+  --on-gold-text:     #1a1305;
+
+  --font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-serif:   'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-text:    'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --w-regular: 400;
+  --w-medium:  500;
+  --w-semibold:600;
+  --w-bold:    700;
+  --w-extra:   800;
+  --w-black:   900;
+
+  --size-display-xl: 88px;
+  --size-display-l:  64px;
+  --size-display-m:  48px;
+  --size-title-xl:   36px;
+  --size-title-l:    28px;
+  --size-title-m:    22px;
+  --size-title-s:    18px;
+  --size-body-l:     18px;
+  --size-body-m:     16px;
+  --size-body-s:     14px;
+  --size-caption:    13px;
+  --size-micro:      11px;
+
+  --lh-tight:  1.02;
+  --lh-snug:   1.14;
+  --lh-normal: 1.5;
+  --lh-relax:  1.62;
+
+  --track-tight:  -0.02em;
+  --track-snug:   -0.01em;
+  --track-normal: 0;
+  --track-wide:   0.04em;
+  --track-caps:   0.14em;
+
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  --container-text: 680px;
+  --container-app:  1160px;
+  --container-wide: 1320px;
+  --gutter:         24px;
+
+  --control-h-sm: 32px;
+  --control-h-md: 40px;
+  --control-h-lg: 48px;
+  --tap-min:      44px;
+
+  /* WHITEBOX_TALK1 - owner: "square corners", the .org/news treatment.
+     sm/md/lg drive every input/button/bubble in this app (checked live -
+     nothing else reads them); zeroed here. --radius-xs has no reader
+     today and --radius-pill is what the avatar circles, unread dot and
+     door chip actually want to stay round - both untouched. */
+  --radius-0:    0px;
+  --radius-xs:   2px;
+  --radius-sm:   0px;
+  --radius-md:   0px;
+  --radius-lg:   0px;
+  --radius-pill: 999px;
+
+  --bw-hair:  1px;
+  --bw-rule:  1.5px;
+  --bw-heavy: 2px;
+  --bw-frame: 3px;
+
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(28, 26, 20, 0.06),
+              0 1px 1px rgba(28, 26, 20, 0.04);
+  --shadow-2: 0 2px 4px rgba(28, 26, 20, 0.06),
+              0 4px 12px rgba(28, 26, 20, 0.07);
+  --shadow-3: 0 8px 24px rgba(28, 26, 20, 0.10),
+              0 2px 6px rgba(28, 26, 20, 0.06);
+  --shadow-pop: 0 16px 48px rgba(28, 26, 20, 0.18),
+                0 4px 12px rgba(28, 26, 20, 0.10);
+  --shadow-modal: 0 24px 60px rgba(12, 24, 38, 0.4);
+
+  --ring-focus: 0 0 0 3px rgba(47, 69, 56, 0.30);
+
+  --dur-instant: 90ms;
+  --dur-fast:    140ms;
+  --dur-base:    200ms;
+  --dur-slow:    320ms;
+
+  --ease-decisive: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:       cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-gavel:    cubic-bezier(0.85, 0, 0.15, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

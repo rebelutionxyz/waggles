@@ -1,0 +1,161 @@
+.pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  width: clamp(260px, 28vw, 340px);
+  flex: 0 0 auto;
+  border-right: var(--bw-hair) solid var(--border-hair);
+  background: var(--astra-content-bg, var(--bg-canvas));
+}
+
+/* TALK_MOBILE1: below the phone breakpoint this pane is only ever shown
+   alone (see TalkHome.module.css's data-view toggle), so it takes the full
+   width instead of the desktop sidebar's fixed clamp(). */
+@media (max-width: 720px) {
+  .pane {
+    width: 100%;
+    border-right: none;
+  }
+}
+
+.head {
+  flex: 0 0 auto;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: var(--bw-hair) solid var(--border-hair);
+}
+.title {
+  font-size: var(--size-title-s);
+  font-weight: var(--w-bold);
+  margin: 0 0 var(--space-2);
+}
+.tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-2);
+  border-bottom: var(--bw-hair) solid var(--border-hair);
+}
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: var(--size-caption);
+  cursor: pointer;
+}
+.tab:hover {
+  background: var(--paper-100);
+}
+.tabActive {
+  background: var(--astra-accent, var(--accent));
+  color: var(--text-on-accent);
+  font-weight: var(--w-semibold);
+}
+
+.searchBanner {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--size-caption);
+  color: var(--text-muted);
+  border-bottom: var(--bw-hair) solid var(--border-hair);
+}
+.clearLink {
+  color: var(--text-body);
+  font-weight: var(--w-medium);
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.row:hover {
+  background: var(--paper-100);
+}
+.rowActive {
+  background: var(--paper-200);
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--astra-accent-dim, var(--navy-500));
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--w-semibold);
+  font-size: var(--size-caption);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.name {
+  font-weight: var(--w-semibold);
+  font-size: var(--size-body-s);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.time {
+  flex: 0 0 auto;
+  font-size: var(--size-micro);
+  color: var(--text-faint);
+}
+.preview {
+  /* TALK_MOBILE1: a plain <span> stays `display: inline`, and an inline box
+     never clips/ellipsizes nowrap text - it was rendering at full intrinsic
+     width and forcing the whole row wider (517px scrollWidth in a 367px row
+     for a ~70-char preview). `.name` escapes this only because it's a flex
+     item of `.top` and gets auto-blockified; `.preview` isn't. */
+  display: block;
+  min-width: 0;
+  font-size: var(--size-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.previewEmpty {
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.unreadDot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--astra-accent, var(--accent));
+}
+
+.empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--size-body-s);
+}

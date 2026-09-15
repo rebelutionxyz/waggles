@@ -1,0 +1,101 @@
+.pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* TALK_MOBILE1: the only way back to ConversationList once the phone
+   breakpoint hides it (TalkHome.module.css) - desktop never needs it since
+   both panes are visible there already. */
+.backBtn {
+  display: none;
+}
+@media (max-width: 720px) {
+  .backBtn {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    min-height: 44px;
+    margin: var(--space-2) clamp(16px, 3vw, 32px) 0;
+    padding: 0 var(--space-3);
+    border: var(--bw-hair) solid var(--border-rule);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    color: var(--text-body);
+    font: inherit;
+    font-size: var(--size-body-s);
+    font-weight: var(--w-semibold);
+    cursor: pointer;
+  }
+}
+
+.head {
+  flex: 0 0 auto;
+  padding: var(--space-4) clamp(16px, 3vw, 32px);
+  border-bottom: var(--bw-hair) solid var(--border-hair);
+  font-weight: var(--w-semibold);
+}
+
+.messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) clamp(16px, 3vw, 32px);
+}
+
+/* Empty-thread HOME state (SHELL v1.5): centered greeting + composer. Docks
+   to the bottom (.pane's normal docked composer) the moment the first
+   message lands - see TalkHome, which re-renders this pane once `messages`
+   goes from empty to non-empty. */
+.homeWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) clamp(16px, 4vw, 40px);
+  gap: var(--space-6);
+  text-align: center;
+}
+.greeting {
+  font-family: var(--astra-display, var(--font-display));
+  font-size: var(--size-title-l);
+  color: var(--text-strong);
+  margin: 0;
+}
+.greetingSub {
+  color: var(--text-muted);
+  margin: calc(-1 * var(--space-4)) 0 0;
+  max-width: 420px;
+}
+.homeComposer {
+  width: 100%;
+  max-width: 560px;
+}
+
+.pickerWrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* TALK_CALLS1 — inline missed-call note, interleaved with messages by
+   timestamp. TALK has no global notifications inbox (unlike TheMANUAL.tech's
+   /notifications page) to render this the way the reference does, so it
+   renders here instead - a centered system line, never a message bubble. */
+.missedCall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  font-size: var(--size-caption);
+  color: var(--text-muted);
+}

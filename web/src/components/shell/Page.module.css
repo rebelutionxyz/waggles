@@ -1,0 +1,4 @@
+.page {
+  max-width: var(--container-app);
+  margin: 0 auto;
+}

@@ -1,0 +1,40 @@
+.wrap {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+/* TALK_MOBILE1: pass-through wrappers so ConversationList's/ThreadPane's own
+   `.pane` elements keep driving the desktop flex layout directly (a fixed-
+   width sidebar + a flexible thread column) - only the phone breakpoint
+   below turns them into an either/or toggle. */
+.listSlot,
+.threadSlot {
+  display: contents;
+}
+
+/* Below this, the two-pane split never fit a phone at all: ConversationList's
+   own `width: clamp(260px, 28vw, 340px)` floors at 260px regardless of
+   viewport, so ThreadPane was squeezed into whatever was left (as little as
+   ~60px at 320px wide) - message text wrapped one character per line and the
+   composer's controls fell off the right edge entirely. Below the breakpoint,
+   show one pane at a time, full width; ConversationList's own CSS is what
+   expands it to 100% (see ConversationList.module.css) - ThreadPane already
+   fills the remaining flex space with nothing to compete with it. */
+@media (max-width: 720px) {
+  .wrap[data-view='list'] .threadSlot {
+    display: none;
+  }
+  .wrap[data-view='thread'] .listSlot {
+    display: none;
+  }
+}
+
+.loading {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  height: 100%;
+}

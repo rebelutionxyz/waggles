@@ -1,0 +1,114 @@
+.composer {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.docked {
+  padding: var(--space-3) clamp(16px, 3vw, 32px);
+  border-top: var(--bw-hair) solid var(--border-hair);
+  background: var(--astra-content-bg, var(--bg-canvas));
+}
+
+.centered {
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.inputBox {
+  flex: 1;
+  display: flex;
+}
+.input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-lg);
+  font: inherit;
+  background: var(--surface-raised);
+  resize: none;
+  max-height: 120px;
+}
+.input:disabled {
+  background: var(--paper-100);
+  color: var(--text-faint);
+}
+
+.send {
+  background: var(--astra-accent, var(--accent));
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0 var(--space-5);
+  height: 44px;
+  font-weight: var(--w-semibold);
+  cursor: pointer;
+}
+.send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabledNote {
+  margin-top: var(--space-2);
+  font-size: var(--size-caption);
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
+.iconBtn {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  font-size: var(--size-body-m);
+  cursor: pointer;
+}
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recording {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.recDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex: 0 0 auto;
+  animation: recPulse 1s ease-in-out infinite;
+}
+.recClock {
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.recLabel {
+  color: var(--text-muted);
+  font-size: var(--size-caption);
+}
+
+@keyframes recPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

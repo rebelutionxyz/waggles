@@ -1,0 +1,85 @@
+.toggleRow {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.toggle {
+  flex: 1 1 auto;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--bw-hair) dashed var(--border-rule);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--size-body-s);
+  font-weight: var(--w-semibold);
+  cursor: pointer;
+  text-align: center;
+}
+.toggle:hover {
+  background: var(--paper-100);
+  border-style: solid;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--size-body-s);
+  background: var(--surface-card);
+  color: var(--text-body);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.start {
+  flex: 1 1 auto;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: var(--size-body-s);
+  font-weight: var(--w-semibold);
+  cursor: pointer;
+}
+.start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel {
+  padding: var(--space-2) var(--space-3);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--size-body-s);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  font-size: var(--size-caption);
+  color: var(--danger);
+}

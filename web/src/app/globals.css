@@ -1,0 +1,18 @@
+/* TALK — the stylesheet entry point.
+ *
+ * It holds nothing itself. The token layer and the base element defaults stay
+ * in src/styles/ where they already lived.
+ *
+ * It sits FIRST because `@import` must precede every other rule. */
+
+/* WAGGLES_F3 — `@honeycomb/shell/shell.css` and its Tailwind utilities are
+   gone; the fork owns its chrome, so `styles/shell.css` is this app's own
+   plain CSS (see that file's header). Tailwind is removed from the app
+   entirely — it existed solely to compile the shared shell's utilities.
+
+   ORDER: tokens, then base element defaults, then the chrome — so the chrome
+   can override a base rule, which is the direction overrides actually run.
+   (`@import` must precede every other rule, hence all three up here.) */
+@import '../styles/tokens.css';
+@import '../styles/base.css';
+@import '../styles/shell.css';

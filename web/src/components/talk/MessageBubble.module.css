@@ -1,0 +1,198 @@
+.row {
+  display: flex;
+  margin-bottom: var(--space-3);
+}
+.mine {
+  justify-content: flex-end;
+}
+
+.col {
+  max-width: 78%;
+  display: flex;
+  flex-direction: column;
+}
+
+.bubbleWrap {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+.mine .bubbleWrap {
+  flex-direction: row-reverse;
+}
+
+.pinBadge {
+  font-size: var(--size-micro);
+}
+
+.bubble {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--paper-100);
+  color: var(--text-body);
+  font-size: var(--size-body-m);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mine .bubble {
+  background: var(--astra-accent, var(--accent));
+  color: var(--text-on-accent);
+}
+
+.menuToggle {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: var(--space-1);
+  font-size: var(--size-body-s);
+  opacity: 0;
+}
+.bubbleWrap:hover .menuToggle {
+  opacity: 1;
+}
+/* TALK_MOBILE1: :hover never fires on a touch device, so reactions/pin/edit/
+   unsend - everything behind this toggle - had no way to be discovered or
+   reached on a phone at all. Below the phone breakpoint it's always shown. */
+@media (max-width: 720px) {
+  .menuToggle {
+    opacity: 1;
+  }
+}
+
+.menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.mine .menu {
+  justify-content: flex-end;
+}
+.reactBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--size-body-s);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm, 4px);
+}
+.reactBtn:hover {
+  background: var(--paper-100);
+}
+.menuItem {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--size-caption);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm, 4px);
+}
+.menuItem:hover {
+  background: var(--paper-100);
+  color: var(--text-body);
+}
+
+.reactions {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+.mine .reactions {
+  justify-content: flex-end;
+}
+.reactionPill {
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  padding: 0 var(--space-2);
+  font-size: var(--size-micro);
+  cursor: pointer;
+}
+.reactionMine {
+  border-color: var(--astra-accent, var(--accent));
+  color: var(--astra-accent, var(--accent));
+}
+
+.editBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.editInput {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--size-body-m);
+  background: var(--surface-card);
+  color: var(--text-body);
+  resize: vertical;
+}
+.editActions {
+  display: flex;
+  gap: var(--space-2);
+}
+.smallBtn {
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font: inherit;
+  font-size: var(--size-caption);
+  font-weight: var(--w-semibold);
+  cursor: pointer;
+}
+.smallBtnGhost {
+  padding: var(--space-1) var(--space-3);
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--size-caption);
+  cursor: pointer;
+}
+
+.meta {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.sender {
+  font-weight: var(--w-semibold);
+  font-size: var(--size-caption);
+  color: var(--text-muted);
+}
+.mine .meta {
+  justify-content: flex-end;
+}
+
+.time {
+  font-size: var(--size-micro);
+  color: var(--text-faint);
+}
+
+.undecryptable {
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.error {
+  margin: var(--space-1) 0 0;
+  font-size: var(--size-micro);
+  color: var(--danger);
+}

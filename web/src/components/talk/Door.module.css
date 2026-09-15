@@ -1,0 +1,35 @@
+.wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) clamp(16px, 4vw, 40px);
+}
+.card {
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+}
+.title {
+  font-family: var(--astra-display, var(--font-display));
+  font-size: var(--size-display-m);
+  margin: var(--space-4) 0 var(--space-2);
+  color: var(--text-strong);
+}
+.sub {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-6);
+}
+.doors {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-8);
+  font-size: var(--size-caption);
+  color: var(--text-faint);
+}
+.doorChip {
+  border: var(--bw-hair) solid var(--border-rule);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+}

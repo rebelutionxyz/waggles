@@ -1,0 +1,32 @@
+.wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) clamp(16px, 4vw, 40px);
+}
+.card {
+  max-width: 480px;
+  text-align: center;
+}
+.title {
+  font-family: var(--astra-display, var(--font-display));
+  font-size: var(--size-title-xl);
+  margin: var(--space-4) 0 var(--space-3);
+}
+.sub {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-4);
+}
+.list {
+  text-align: left;
+  color: var(--text-muted);
+  font-size: var(--size-body-s);
+  line-height: var(--lh-relax);
+  padding-left: var(--space-5);
+  margin: 0 0 var(--space-6);
+}
+.link {
+  color: var(--astra-accent, var(--accent));
+  font-weight: var(--w-semibold);
+}
