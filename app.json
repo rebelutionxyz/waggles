@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Waggles",
+    "slug": "waggles-app",
+    "version": "0.1.0",
+    "scheme": "waggles",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.waggles.messenger"
+    },
+    "android": {
+      "package": "app.waggles.messenger"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-dev-client"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
