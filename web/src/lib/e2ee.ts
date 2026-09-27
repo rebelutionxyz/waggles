@@ -471,3 +471,93 @@ export async function computeSafetyNumber(beeIds: string[]): Promise<string> {
   }
   return groups.join(' ');
 }
+
+// ── per-call ephemeral key (CCK) — CALL_KEY_MF v0.1 KEY-1 ───────────────────
+/**
+ * CALL_KEY_MF v0.1: the ephemeral per-call key (CCK). Unlike deriveCallKey, a
+ * CCK is NOT derived from any conversation — it is freshly random per call,
+ * sealed (crypto_box_seal) to each admitted participant's X25519 public key, and
+ * rotated on join/leave. This lets a call be E2EE for guests who share no
+ * conversation with the host (Studio link guests, add-to-live-call, Waggles
+ * off-constellation contacts). Every e2ee.ts copy carries this block
+ * BYTE-IDENTICAL (verbatim-mirror obligation); only KEY-2 wires it to a room.
+ */
+
+/** A fresh random 256-bit call content key. Never derived, never reused across calls. */
+export async function generateCallKey(): Promise<Uint8Array> {
+  const sodium = await S();
+  return sodium.randombytes_buf(32);
+}
+
+/**
+ * Seal a CCK to each recipient X25519 public key (crypto_box_seal, anonymous —
+ * the same primitive sealToMembers uses for the conversation key). Returns one
+ * base64 blob per recipient, in input order. The server relays these blobs; it
+ * never sees the CCK.
+ */
+export async function sealCallKeyTo(
+  recipientPublicKeys: Uint8Array[],
+  cck: Uint8Array,
+): Promise<string[]> {
+  const sodium = await S();
+  return recipientPublicKeys.map((pk) =>
+    sodium.to_base64(sodium.crypto_box_seal(cck, pk), sodium.base64_variants.ORIGINAL),
+  );
+}
+
+/**
+ * Open a sealed CCK with the recipient's own keypair. Returns null when this
+ * keypair is not the one the blob was sealed to (a forwarded blob cannot be
+ * opened). Mirrors getConversationKey's crypto_box_seal_open.
+ */
+export async function openCallKey(
+  sealedBase64: string,
+  myPublicKey: Uint8Array,
+  mySecretKey: Uint8Array,
+): Promise<Uint8Array | null> {
+  const sodium = await S();
+  try {
+    const sealed = sodium.from_base64(sealedBase64, sodium.base64_variants.ORIGINAL);
+    return sodium.crypto_box_seal_open(sealed, myPublicKey, mySecretKey);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * THE SINGLE ENCODING (CALL_KEY_MF v0.1 §2f — the silent-decrypt invariant).
+ * Every participant MUST feed LiveKit's ExternalE2EEKeyProvider.setKey the output
+ * of THIS function for the SAME cck bytes, or the derived media keys diverge
+ * (a string key => PBKDF2) and decryption fails silently with no error. Do not
+ * encode a CCK for setKey anywhere else. base64(ORIGINAL) matches deriveCallKey's
+ * format, so the two key sources are interchangeable at the setKey boundary.
+ */
+export async function callKeyToLiveKit(cck: Uint8Array): Promise<string> {
+  const sodium = await S();
+  return sodium.to_base64(cck, sodium.base64_variants.ORIGINAL);
+}
+
+/**
+ * A throwaway X25519 keypair for a raw-link guest with no registered device key
+ * (CALL_KEY_MF v0.1 §2b form 2). The guest presents publicKey; the host seals the
+ * CCK to it; the guest opens with secretKey. Neither key outlives the call.
+ */
+export async function generateEphemeralKeypair(): Promise<{
+  publicKey: Uint8Array;
+  secretKey: Uint8Array;
+}> {
+  const sodium = await S();
+  const kp = sodium.crypto_box_keypair();
+  return { publicKey: kp.publicKey, secretKey: kp.privateKey };
+}
+
+/**
+ * Options KEY-2 hands LiveKit's key provider. keyringSize is set DELIBERATELY
+ * (not left implicit) so a rotation's prior epoch keeps decoding in-flight frames
+ * during the sub-second cutover; the pinned livekit-client 2.22.x
+ * KEY_PROVIDER_DEFAULTS is keyringSize 16 / failureTolerance 10, and we hold both.
+ */
+export const CALL_KEY_PROVIDER_OPTIONS = {
+  keyringSize: 16,
+  failureTolerance: 10,
+} as const;
