@@ -107,3 +107,29 @@ No edge function, no secrets.
 Table `comms_reactions` (PK `(message_id, bee_id, emoji)`; `bee_id`→`profiles`, `message_id`→
 `comms_messages`); participant-scoped read RLS; RPC `comms_react` (SECURITY DEFINER, verbatim — no
 fork edit); anon revoked, `authenticated` granted SELECT + `comms_react` EXECUTE.
+
+---
+
+# Waggles fork — OWNER APPLY: pins (WAGGLES_PINS1)
+
+Adds pinned messages to the fork project **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1.
+Creates `comms_pins` + `comms_pin`/`comms_unpin` (the core deferred them).
+
+## 1. Apply the migration (paste — transactional)
+1. Supabase dashboard → project `fzmuobbboknhvpkqetxn` → **SQL Editor**.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260928235000_waggles_pins.sql`
+3. Paste into a new query and **Run** (one `BEGIN … COMMIT`; PREFLIGHT rolls back on a missing prereq).
+
+## 2. Probe it (paste — read-only)
+1. Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\pins_probe.sql`, paste, **Run**.
+2. Success = NOTICES end with **`WAGGLES_PINS PROBE: ALL PASS`**.
+
+## 3. Turn pins on (one-line client flag)
+In `src/lib/comms.ts` set `export const PINS_ENABLED = true;` (ships **false**). This lights up the
+long-press Pin/Unpin action and the 📌 marker in the thread. No edge function, no secrets.
+
+## What this added
+Table `comms_pins` (PK `(conversation_id, message_id)`; `pinned_by`→`profiles`); participant-scoped
+read RLS; RPCs `comms_pin` / `comms_unpin` (SECURITY DEFINER, verbatim; 50-pin/conversation cap);
+anon revoked, `authenticated` granted SELECT + both RPCs' EXECUTE.

@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -22,9 +23,13 @@ import {
   markRead,
   resetConversationEncryption,
   sendMessage,
+  PINS_ENABLED,
+  listPins,
+  pinMessage,
   subscribeConversation,
   syncConversationKey,
   toggleReaction,
+  unpinMessage,
 } from '@/lib/comms';
 import {
   cacheMessages,
@@ -54,7 +59,20 @@ export default function Thread() {
   const [keyStatus, setKeyStatus] = useState<'ok' | 'locked' | 'pending' | 'unknown'>('unknown');
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const listRef = useRef<FlatList<CommsMessage>>(null);
+
+  // WAGGLES_PINS1 — pinned message ids for this thread (empty + a no-op while
+  // PINS_ENABLED is false; listPins returns [] then).
+  const refreshPins = useCallback(async () => {
+    if (!PINS_ENABLED) return;
+    try {
+      const pins = await listPins(conversationId);
+      setPinnedIds(new Set(pins.map((p) => p.messageId)));
+    } catch {
+      /* leave pins as-is */
+    }
+  }, [conversationId]);
 
   const refreshMessages = useCallback(async () => {
     try {
@@ -93,9 +111,10 @@ export default function Thread() {
         setKeyStatus(await conversationKeyStatus(conv).catch(() => 'unknown' as const));
       }
       await refreshMessages();
+      await refreshPins();
       await flushOutbox();
     })();
-  }, [conversationId, refreshMessages, flushOutbox]);
+  }, [conversationId, refreshMessages, refreshPins, flushOutbox]);
 
   useEffect(() => {
     const token = session?.access_token ?? null;
@@ -253,7 +272,25 @@ export default function Thread() {
                 at={item.createdAt}
                 edited={!!item.editedAt}
                 reactions={item.reactions}
+                pinned={pinnedIds.has(item.id)}
                 onReact={() => toggleReaction(item.id, '❤️').then(refreshMessages).catch(() => {})}
+                onLongPress={() => {
+                  const isPinned = pinnedIds.has(item.id);
+                  const opts: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
+                    { text: 'React ❤️', onPress: () => toggleReaction(item.id, '❤️').then(refreshMessages).catch(() => {}) },
+                  ];
+                  if (PINS_ENABLED) {
+                    opts.push({
+                      text: isPinned ? 'Unpin' : 'Pin',
+                      onPress: () =>
+                        (isPinned ? unpinMessage(conversationId, item.id) : pinMessage(conversationId, item.id))
+                          .then(refreshPins)
+                          .catch(() => {}),
+                    });
+                  }
+                  opts.push({ text: 'Cancel', style: 'cancel' });
+                  Alert.alert('Message', undefined, opts);
+                }}
               />
             );
           }}
@@ -318,14 +355,16 @@ function Bubble(props: {
   at: string;
   edited?: boolean;
   pending?: boolean;
+  pinned?: boolean;
   reactions: { emoji: string; count: number; mine: boolean }[];
   onReact: () => void;
+  onLongPress?: () => void;
 }) {
   const t = useTheme();
-  const { mine, body, at, edited, pending, reactions, onReact } = props;
+  const { mine, body, at, edited, pending, pinned, reactions, onReact, onLongPress } = props;
   return (
     <Pressable
-      onLongPress={onReact}
+      onLongPress={onLongPress ?? onReact}
       style={{
         alignSelf: mine ? 'flex-end' : 'flex-start',
         maxWidth: '82%',
@@ -342,6 +381,7 @@ function Bubble(props: {
         {body}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+        {pinned ? <Text style={{ fontSize: 11 }}>📌</Text> : null}
         <Text style={{ color: mine ? t.bubbleMineInk : t.textDim, fontSize: 10, opacity: 0.7 }}>
           {pending ? 'sending…' : clock(at)}
           {edited ? ' · edited' : ''}
