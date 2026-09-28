@@ -159,3 +159,34 @@ toggle in a conversation's Settings. No edge function, no secrets.
 ## What this added
 RPC `comms_set_mute` (SECURITY DEFINER, verbatim — no fork edit; updates the caller's own
 `comms_participants.muted`); anon revoked, `authenticated` granted EXECUTE. No tables/columns.
+
+---
+
+# Waggles fork — OWNER APPLY: disappearing messages (WAGGLES_DISAPPEAR1)
+
+Adds disappearing messages to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1. The core
+already stamps `expires_at` on send; this adds the timer RPC, the sweep, and a cron.
+
+## 0. Enable pg_cron FIRST (dashboard)
+Database → Extensions → enable **`pg_cron`**. Without it the migration still applies but expired
+messages are never swept server-side (the client still hides them locally).
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260929000000_waggles_disappearing.sql`
+3. Paste and **Run**. If pg_cron is on, it schedules `comms-disappear-sweep` (*/5); if not, it
+   NOTICEs a reminder — enable pg_cron then run the one-line `cron.schedule(...)` the NOTICE prints.
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\disappearing_probe.sql`, paste,
+**Run** → **`WAGGLES_DISAPPEAR PROBE: ALL PASS`** (a `pg_cron NOT enabled` WARNING means finish step 0).
+
+## 3. Turn disappearing on (one-line client flag)
+In `src/lib/comms.ts` set `export const DISAPPEARING_ENABLED = true;` (ships **false**). Lights up
+the timer picker in a conversation's Settings. No edge function, no secrets.
+
+## What this added
+RPCs `comms_set_disappearing` (user-callable) + `comms_sweep_expired` (cron-only; deletes
+`expires_at < now`), both SECURITY DEFINER and verbatim; a `*/5` pg_cron job `comms-disappear-sweep`.
+No tables/columns (the core already has `disappear_seconds` + `expires_at`).

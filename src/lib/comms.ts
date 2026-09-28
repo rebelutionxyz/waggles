@@ -221,7 +221,11 @@ async function rowsToMessages(conversationId: string, rows: Row[]): Promise<Comm
   const ck = bee ? await getConversationKey(bee, conversationId).catch(() => null) : null;
 
   const out: CommsMessage[] = [];
+  const nowMs = Date.now();
   for (const m of rows) {
+    // WAGGLES_DISAPPEAR1: hide an expired message immediately, without waiting for
+    // the 5-minute server sweep. Only messages with a timer carry expires_at.
+    if (m.expires_at && new Date(m.expires_at as string).getTime() < nowMs) continue;
     let body: string = m.body ?? '';
     let undecryptable = false;
     if (m.is_encrypted && isEncryptedBody(m.body)) {

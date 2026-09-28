@@ -5,18 +5,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
 import {
   type Conversation,
+  DISAPPEARING_ENABLED,
   GROUPS_ENABLED,
+  MUTE_ENABLED,
   addGroupMember,
   clearVerifiedSafetyNumber,
   conversationSafetyNumber,
   conversationTitle,
   findBeeByHandle,
   getConversation,
-  MUTE_ENABLED,
   getVerifiedSafetyNumber,
   leaveConversation,
   removeGroupMember,
   setConversationMuted,
+  setDisappearing,
   setGroupAddPolicy,
   storeVerifiedSafetyNumber,
 } from '@/lib/comms';
@@ -189,6 +191,40 @@ export default function Settings() {
               </Pressable>
             );
           })()}
+        </Section>
+      ) : null}
+
+      {conv && conversationId && DISAPPEARING_ENABLED ? (
+        <Section t={t} title="Disappearing messages">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(
+              [
+                ['Off', null],
+                ['1 hour', 3600],
+                ['1 day', 86400],
+                ['1 week', 604800],
+              ] as [string, number | null][]
+            ).map(([label, secs]) => {
+              const active = (conv.disappearSeconds ?? null) === secs;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => setDisappearing(conversationId, secs).then(refreshConv).catch(() => {})}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    backgroundColor: active ? t.accent : t.surfaceAlt,
+                  }}
+                >
+                  <Text style={{ color: active ? t.accentInk : t.text, fontWeight: '600' }}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={{ color: t.textDim, fontSize: 12, marginTop: 8 }}>
+            New messages delete for everyone after the timer.
+          </Text>
         </Section>
       ) : null}
 
