@@ -5,11 +5,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
 import {
   type Conversation,
+  GROUPS_ENABLED,
+  addGroupMember,
   clearVerifiedSafetyNumber,
   conversationSafetyNumber,
   conversationTitle,
+  findBeeByHandle,
   getConversation,
   getVerifiedSafetyNumber,
+  leaveConversation,
+  removeGroupMember,
+  setGroupAddPolicy,
   storeVerifiedSafetyNumber,
 } from '@/lib/comms';
 import { exportRecoveryCode, getDeviceId, importRecoveryCode } from '@/lib/e2ee';
@@ -59,6 +65,11 @@ export default function Settings() {
       await storeVerifiedSafetyNumber(beeId, conversationId, safety);
       setVerified(true);
     }
+  }
+
+  async function refreshConv() {
+    if (!conversationId) return;
+    setConv(await getConversation(conversationId).catch(() => null));
   }
 
   async function doExport() {
@@ -162,6 +173,10 @@ export default function Settings() {
         </Section>
       ) : null}
 
+      {conv?.kind === 'group' && GROUPS_ENABLED ? (
+        <GroupSection t={t} conv={conv} beeId={beeId ?? null} onReload={refreshConv} onLeft={() => router.back()} />
+      ) : null}
+
       <Section t={t} title="This device">
         <Row t={t} label="Device id" value={deviceId} />
         <Row t={t} label="Bee id" value={beeId ?? '—'} />
@@ -237,6 +252,152 @@ export default function Settings() {
         </Pressable>
       </View>
     </ScrollView>
+  );
+}
+
+// WAGGLES_GROUPS1 — group management (members, add/remove, add-policy, leave).
+// Rendered only for a group conversation AND only while GROUPS_ENABLED (stays dark
+// until the owner applies the fork migration + flips the flag). All writes go through
+// the SECURITY DEFINER RPCs, which also enforce owner/member rules server-side.
+function GroupSection({
+  t,
+  conv,
+  beeId,
+  onReload,
+  onLeft,
+}: {
+  t: ReturnType<typeof useTheme>;
+  conv: Conversation;
+  beeId: string | null;
+  onReload: () => Promise<void> | void;
+  onLeft: () => void;
+}) {
+  const [handle, setHandle] = useState('');
+  const [busy, setBusy] = useState(false);
+  const myRole = conv.participants.find((p) => p.beeId === beeId)?.role ?? 'member';
+  const iAmOwner = myRole === 'owner';
+  const canAdd = iAmOwner || conv.membersCanAdd;
+
+  const add = async () => {
+    const h = handle.trim().replace(/^@/, '');
+    if (!h || busy) return;
+    setBusy(true);
+    try {
+      const bee = await findBeeByHandle(h);
+      if (!bee) {
+        Alert.alert('Not found', `No bee @${h}.`);
+        return;
+      }
+      await addGroupMember(conv.id, bee.id);
+      setHandle('');
+      await onReload();
+    } catch (e) {
+      Alert.alert('Could not add', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (bid: string) => {
+    setBusy(true);
+    try {
+      await removeGroupMember(conv.id, bid);
+      await onReload();
+    } catch (e) {
+      Alert.alert('Could not remove', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const togglePolicy = async () => {
+    setBusy(true);
+    try {
+      await setGroupAddPolicy(conv.id, !conv.membersCanAdd);
+      await onReload();
+    } catch (e) {
+      Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const leave = () => {
+    Alert.alert('Leave group', 'Leave this group? You will lose access to its messages.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Leave',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await leaveConversation(conv.id);
+            onLeft();
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Section t={t} title="Group">
+      {conv.participants.map((p) => (
+        <View key={p.beeId} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+          <Text style={{ color: t.text, flex: 1 }}>
+            @{p.handle}
+            {p.beeId === beeId ? ' (you)' : ''}
+            {p.role === 'owner' ? '  · owner' : ''}
+          </Text>
+          {iAmOwner && p.role !== 'owner' ? (
+            <Pressable onPress={() => void remove(p.beeId)} disabled={busy} hitSlop={8}>
+              <Text style={{ color: t.danger, fontWeight: '700' }}>Remove</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+
+      {canAdd ? (
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <TextInput
+            value={handle}
+            onChangeText={setHandle}
+            placeholder="@handle to add"
+            autoCapitalize="none"
+            placeholderTextColor={t.textDim}
+            style={{
+              flex: 1,
+              color: t.text,
+              backgroundColor: t.surfaceAlt,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            }}
+          />
+          <Pressable
+            onPress={() => void add()}
+            disabled={busy || !handle.trim()}
+            style={{ backgroundColor: t.accent, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}
+          >
+            <Text style={{ color: t.accentInk, fontWeight: '700' }}>Add</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {iAmOwner ? (
+        <Pressable onPress={() => void togglePolicy()} disabled={busy} style={{ marginTop: 12 }}>
+          <Text style={{ color: t.accent, fontWeight: '600' }}>
+            {conv.membersCanAdd
+              ? '✓ Members can add others — tap to make owner-only'
+              : 'Only the owner can add — tap to let members add'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <Pressable
+        onPress={leave}
+        style={{ marginTop: 16, borderColor: t.danger, borderWidth: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+      >
+        <Text style={{ color: t.danger, fontWeight: '800' }}>Leave group</Text>
+      </Pressable>
+    </Section>
   );
 }
 

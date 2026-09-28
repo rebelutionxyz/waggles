@@ -46,3 +46,37 @@ Tables `comms_rooms`, `comms_room_participants`, `comms_call_keys`; helpers `is_
 `room_is_public`; RPCs `comms_room_create` / `comms_room_join` / `comms_room_leave` /
 `comms_put_call_keys`; read-only RLS (writes only via the SECURITY DEFINER RPCs); anon revoked,
 `authenticated` granted only what `src/lib/calls.ts` calls.
+
+---
+
+# Waggles fork — OWNER APPLY: groups (WAGGLES_GROUPS1)
+
+Adds group conversations to the fork Supabase project **`fzmuobbboknhvpkqetxn`**. Prerequisite:
+messaging v0.1 is applied (WAGGLES_F4). Groups add **NO tables/columns** — the core schema already
+has `comms_conversations.kind`/`title`/`created_by`/`members_can_add` and `comms_participants.role`.
+This migration adds only the four group RPCs (forked from the constellation) + their grants.
+
+Nothing here contains secrets. Nothing here has been applied by any agent.
+
+## 1. Apply the migration (paste into the SQL editor — transactional)
+1. Supabase dashboard → project `fzmuobbboknhvpkqetxn` → **SQL Editor**.
+2. Copy the ENTIRE contents of:
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260928233000_waggles_groups.sql`
+3. Paste into a new query and **Run**. One `BEGIN … COMMIT`; a failed PREFLIGHT rolls back with a
+   message naming the missing prereq. Re-running after success is safe (`CREATE OR REPLACE`).
+
+## 2. Probe it (paste — read-only)
+1. Open: `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\groups_probe.sql`
+2. Paste and **Run**. Success = the NOTICES end with **`WAGGLES_GROUPS PROBE: ALL PASS`**. Any
+   `FAIL:` line = stop and report it.
+
+## 3. Turn groups on (one-line client flag)
+In `src/lib/comms.ts`, set `export const GROUPS_ENABLED = true;` (it ships **false**). Groups do not
+appear in the app until this migration is applied AND the flag is flipped. Commit the flip yourself.
+No edge function and no secrets for groups.
+
+## What this added
+RPCs `comms_create_group` / `comms_group_add` / `comms_group_remove` / `comms_group_set_add_policy`
+(SECURITY DEFINER; owner/member roles + `members_can_add` policy; the only fork edit is
+`bees`→`profiles`). No new tables — RLS is inherited from messaging v0.1; anon revoked,
+`authenticated` granted only what `src/lib/comms.ts` calls.
