@@ -16,6 +16,7 @@ import {
   currentCallEpoch,
   getRoomToken,
   hostSealRoomCallKey,
+  joinRoom,
   leaveRoom,
   myBeeId,
 } from '@/lib/calls';
@@ -54,9 +55,15 @@ export default function CallRoute() {
         const bee = await myBeeId();
         if (!live) return;
         setMe(bee);
-        const key = isHost
-          ? await hostSealRoomCallKey(roomId, bee, 1)
-          : (await awaitMyCallKey(roomId, bee))?.key ?? null;
+        let key: string | null;
+        if (isHost) {
+          key = await hostSealRoomCallKey(roomId, bee, 1);
+        } else {
+          // Become a room participant FIRST, so the host's roster reseal (below)
+          // includes this device and awaitMyCallKey can then read our sealed key.
+          await joinRoom(roomId, 'speaker');
+          key = (await awaitMyCallKey(roomId, bee))?.key ?? null;
+        }
         if (!live) return;
         if (!key) {
           setError('Could not establish encryption — the call is end-to-end encrypted or it does not connect.');
@@ -229,9 +236,21 @@ function CallStage({
         void currentCallEpoch(roomId).then((cur) => hostSealRoomCallKey(roomId, meBeeId, cur + 1).catch(() => {}));
       }, 800);
     };
+    // HOST also reseals on the DB ROSTER change (comms_room_participants) — a joiner
+    // is added there BEFORE it can connect to LiveKit (it needs the sealed key first),
+    // so a LiveKit-only reseal would deadlock the join. This is the bootstrap fix.
+    let partsChannel: ReturnType<ReturnType<typeof getSupabase>['channel']> | null = null;
     if (isHost) {
       room.on(RoomEvent.ParticipantConnected, scheduleReseal);
       room.on(RoomEvent.ParticipantDisconnected, scheduleReseal);
+      partsChannel = getSupabase()
+        .channel(`roomparts:${roomId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'comms_room_participants', filter: `room_id=eq.${roomId}` },
+          scheduleReseal,
+        )
+        .subscribe();
     }
     return () => {
       live = false;
@@ -241,6 +260,7 @@ function CallStage({
         room.off(RoomEvent.ParticipantDisconnected, scheduleReseal);
       }
       void getSupabase().removeChannel(channel);
+      if (partsChannel) void getSupabase().removeChannel(partsChannel);
     };
   }, [room, roomId, meBeeId, isHost, keyProvider]);
 

@@ -182,4 +182,57 @@ export async function awaitMyCallKey(
   return null;
 }
 
+// ── incoming-call ring (WAGGLES_CALL_RING1) ──────────────────────────────────
+// The fork has no notifications (stripped in the calls migration). Instead the
+// callee learns of a call via realtime on comms_rooms: RLS lets a CONVERSATION
+// MEMBER read the room (comms_rooms_read: is_comms_participant(conversation_id)),
+// so a live 'call' room created by someone else in a shared conversation is
+// delivered here. The caller is filtered out client-side (host_bee_id === me).
+
+export interface IncomingCallEvent {
+  roomId: string;
+  hostBeeId: string;
+  status: string;
+  kind: string;
+  startedAt: string;
+}
+
+export function subscribeIncomingCalls(
+  meBeeId: string,
+  onEvent: (e: IncomingCallEvent) => void,
+): { close: () => void } {
+  const ch = getSupabase()
+    .channel(`incoming-calls:${meBeeId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'comms_rooms' },
+      (payload: { new?: Record<string, unknown> }) => {
+        const r = (payload.new ?? {}) as {
+          id?: string;
+          host_bee_id?: string;
+          status?: string;
+          kind?: string;
+          started_at?: string;
+        };
+        if (!r.id) return;
+        onEvent({
+          roomId: r.id,
+          hostBeeId: r.host_bee_id ?? '',
+          status: r.status ?? '',
+          kind: r.kind ?? '',
+          startedAt: r.started_at ?? '',
+        });
+      },
+    )
+    .subscribe();
+  return { close: () => void getSupabase().removeChannel(ch) };
+}
+
+/** The caller's @handle for the ring, or null. */
+export async function callerHandle(hostBeeId: string): Promise<string | null> {
+  if (!hostBeeId) return null;
+  const { data } = await getSupabase().from('profiles').select('handle').eq('id', hostBeeId).maybeSingle();
+  return (data as { handle?: string } | null)?.handle ?? null;
+}
+
 export { myBeeId };
