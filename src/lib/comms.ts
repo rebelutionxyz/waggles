@@ -205,11 +205,16 @@ export async function getConversation(conversationId: string): Promise<Conversat
   return all.find((c) => c.id === conversationId) ?? null;
 }
 
-const MESSAGE_COLUMNS =
-  // No `comms_reactions` embed: reactions are gated off (WAGGLES_F3-ACK) and
-  // the table is not in the fork bundle, so embedding it would fail the WHOLE
-  // message query — i.e. reading any conversation at all.
-  'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, created_at, deleted_at, edited_at, expires_at, reply_to_message_id';
+// WAGGLES_REACTIONS1: the reactions embed is added ONLY when REACTIONS_ENABLED —
+// the comms_reactions table lands with the reactions migration, and embedding it
+// while the table is absent would fail the WHOLE message query (i.e. reading any
+// conversation). A function (not a const) so it reads the flag at call time,
+// after module init. Owner flips REACTIONS_ENABLED after applying the migration.
+function msgCols(): string {
+  const base =
+    'id, conversation_id, sender_bee_id, body, content_type, is_encrypted, created_at, deleted_at, edited_at, expires_at, reply_to_message_id';
+  return REACTIONS_ENABLED ? `${base}, comms_reactions(bee_id, emoji)` : base;
+}
 
 async function rowsToMessages(conversationId: string, rows: Row[]): Promise<CommsMessage[]> {
   const bee = await myBee().catch(() => null);
@@ -262,7 +267,7 @@ async function rowsToMessages(conversationId: string, rows: Row[]): Promise<Comm
 export async function listMessages(conversationId: string, limit = 200): Promise<CommsMessage[]> {
   const { data, error } = await req()
     .from('comms_messages')
-    .select(MESSAGE_COLUMNS)
+    .select(msgCols())
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -277,7 +282,7 @@ export async function fetchMessagesPage(
 ): Promise<CommsMessage[]> {
   let q = req()
     .from('comms_messages')
-    .select(MESSAGE_COLUMNS)
+    .select(msgCols())
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
     .limit(limit);

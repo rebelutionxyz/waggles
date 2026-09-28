@@ -80,3 +80,30 @@ RPCs `comms_create_group` / `comms_group_add` / `comms_group_remove` / `comms_gr
 (SECURITY DEFINER; owner/member roles + `members_can_add` policy; the only fork edit is
 `bees`→`profiles`). No new tables — RLS is inherited from messaging v0.1; anon revoked,
 `authenticated` granted only what `src/lib/comms.ts` calls.
+
+---
+
+# Waggles fork — OWNER APPLY: reactions (WAGGLES_REACTIONS1)
+
+Adds message reactions to the fork project **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging
+v0.1 (WAGGLES_F4). Unlike groups, this CREATES a table (`comms_reactions`) — the core deferred it.
+
+## 1. Apply the migration (paste — transactional)
+1. Supabase dashboard → project `fzmuobbboknhvpkqetxn` → **SQL Editor**.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260928234000_waggles_reactions.sql`
+3. Paste into a new query and **Run** (one `BEGIN … COMMIT`; PREFLIGHT rolls back on a missing prereq).
+
+## 2. Probe it (paste — read-only)
+1. Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\reactions_probe.sql`, paste, **Run**.
+2. Success = NOTICES end with **`WAGGLES_REACTIONS PROBE: ALL PASS`**.
+
+## 3. Turn reactions on (one-line client flag)
+In `src/lib/comms.ts` set `export const REACTIONS_ENABLED = true;` (ships **false**). This also
+switches on the `comms_reactions` embed in the message query (kept off while the table was absent).
+No edge function, no secrets.
+
+## What this added
+Table `comms_reactions` (PK `(message_id, bee_id, emoji)`; `bee_id`→`profiles`, `message_id`→
+`comms_messages`); participant-scoped read RLS; RPC `comms_react` (SECURITY DEFINER, verbatim — no
+fork edit); anon revoked, `authenticated` granted SELECT + `comms_react` EXECUTE.
