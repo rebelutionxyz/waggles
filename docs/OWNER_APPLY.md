@@ -190,3 +190,33 @@ the timer picker in a conversation's Settings. No edge function, no secrets.
 RPCs `comms_set_disappearing` (user-callable) + `comms_sweep_expired` (cron-only; deletes
 `expires_at < now`), both SECURITY DEFINER and verbatim; a `*/5` pg_cron job `comms-disappear-sweep`.
 No tables/columns (the core already has `disappear_seconds` + `expires_at`).
+
+---
+
+# Waggles fork — OWNER APPLY: reporting (WAGGLES_REPORT1)
+
+Adds user reporting to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1. Creates `comms_reports`.
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260929000500_waggles_reporting.sql`
+3. Paste and **Run** (one `BEGIN … COMMIT`).
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\reporting_probe.sql`, paste, **Run**
+→ **`WAGGLES_REPORT PROBE: ALL PASS`**.
+
+## 3. Turn reporting on (one-line client flag)
+In `src/lib/comms.ts` set `export const REPORTING_ENABLED = true;` (ships **false**). Lights up the
+"Report" action in a conversation's Settings.
+
+## Reading reports (operator)
+The fork has NO client read policy (no admin role). Read `public.comms_reports` from the Supabase
+dashboard / SQL editor (service role bypasses RLS) — e.g. `select * from public.comms_reports order
+by created_at desc;`.
+
+## What this added
+Table `comms_reports` (reporter/reported → `profiles`, optional conversation, reason 1..2000);
+RLS insert-own + NO client read (operator reads out of band); RPC `comms_report` (SECURITY DEFINER,
+verbatim); anon no access, `authenticated` granted only `comms_report` EXECUTE.

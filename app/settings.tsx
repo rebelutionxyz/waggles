@@ -15,8 +15,10 @@ import {
   findBeeByHandle,
   getConversation,
   getVerifiedSafetyNumber,
+  REPORTING_ENABLED,
   leaveConversation,
   removeGroupMember,
+  reportBee,
   setConversationMuted,
   setDisappearing,
   setGroupAddPolicy,
@@ -227,6 +229,38 @@ export default function Settings() {
           </Text>
         </Section>
       ) : null}
+
+      {conv && conversationId && REPORTING_ENABLED && conv.kind === 'direct'
+        ? (() => {
+            const other = conv.participants.find((p) => p.beeId !== beeId);
+            if (!other) return null;
+            return (
+              <Section t={t} title="Report">
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      `Report @${other.handle}`,
+                      'Send a report to the operator? It references this conversation.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Report',
+                          style: 'destructive',
+                          onPress: () =>
+                            reportBee(other.beeId, 'reported', conversationId)
+                              .then(() => Alert.alert('Reported', 'Thanks — the operator will review it.'))
+                              .catch(() => Alert.alert('Could not report', 'Try again.')),
+                        },
+                      ],
+                    )
+                  }
+                >
+                  <Text style={{ color: t.danger, fontWeight: '700' }}>Report @{other.handle}</Text>
+                </Pressable>
+              </Section>
+            );
+          })()
+        : null}
 
       {conv?.kind === 'group' && GROUPS_ENABLED ? (
         <GroupSection t={t} conv={conv} beeId={beeId ?? null} onReload={refreshConv} onLeft={() => router.back()} />
