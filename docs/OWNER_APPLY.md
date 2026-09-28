@@ -133,3 +133,29 @@ long-press Pin/Unpin action and the 📌 marker in the thread. No edge function,
 Table `comms_pins` (PK `(conversation_id, message_id)`; `pinned_by`→`profiles`); participant-scoped
 read RLS; RPCs `comms_pin` / `comms_unpin` (SECURITY DEFINER, verbatim; 50-pin/conversation cap);
 anon revoked, `authenticated` granted SELECT + both RPCs' EXECUTE.
+
+---
+
+# Waggles fork — OWNER APPLY: mute (WAGGLES_MUTE1)
+
+Adds per-participant conversation mute to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1.
+Adds NO tables/columns — the core already has `comms_participants.muted`; this is the one RPC
+`comms_set_mute`.
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of project `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260928235500_waggles_mute.sql`
+3. Paste and **Run** (one `BEGIN … COMMIT`; PREFLIGHT rolls back on a missing prereq).
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\mute_probe.sql`, paste, **Run** →
+**`WAGGLES_MUTE PROBE: ALL PASS`**.
+
+## 3. Turn mute on (one-line client flag)
+In `src/lib/comms.ts` set `export const MUTE_ENABLED = true;` (ships **false**). Lights up the mute
+toggle in a conversation's Settings. No edge function, no secrets.
+
+## What this added
+RPC `comms_set_mute` (SECURITY DEFINER, verbatim — no fork edit; updates the caller's own
+`comms_participants.muted`); anon revoked, `authenticated` granted EXECUTE. No tables/columns.

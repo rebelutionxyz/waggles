@@ -12,9 +12,11 @@ import {
   conversationTitle,
   findBeeByHandle,
   getConversation,
+  MUTE_ENABLED,
   getVerifiedSafetyNumber,
   leaveConversation,
   removeGroupMember,
+  setConversationMuted,
   setGroupAddPolicy,
   storeVerifiedSafetyNumber,
 } from '@/lib/comms';
@@ -170,6 +172,23 @@ export default function Settings() {
               {verified ? 'Verified ✓ — tap to clear' : 'Mark as verified'}
             </Text>
           </Pressable>
+        </Section>
+      ) : null}
+
+      {conv && conversationId && MUTE_ENABLED ? (
+        <Section t={t} title="Notifications">
+          {(() => {
+            const muted = conv.participants.find((p) => p.beeId === beeId)?.muted ?? false;
+            return (
+              <Pressable
+                onPress={() => setConversationMuted(conversationId, !muted).then(refreshConv).catch(() => {})}
+              >
+                <Text style={{ color: t.accent, fontWeight: '600' }}>
+                  {muted ? '🔕 Muted — tap to unmute' : '🔔 Notifications on — tap to mute'}
+                </Text>
+              </Pressable>
+            );
+          })()}
         </Section>
       ) : null}
 
