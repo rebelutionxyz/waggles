@@ -13,5 +13,6 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["node_modules"]
+  "comment": "WAGGLES_CALLS1: exclude non-RN build trees from the app typecheck — 'web' is the separate Next web tree (its own tsconfig; WAGGLES_V1_AUDIT1 flagged it for reconcile) and 'supabase/functions' is Deno edge-fn code (jsr:/npm:/Deno globals), neither of which the Expo/RN tsc should compile.",
+  "exclude": ["node_modules", "web", "supabase/functions"]
 }

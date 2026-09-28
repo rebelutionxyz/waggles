@@ -34,6 +34,7 @@ import {
   outboxFor,
   removeOutbox,
 } from '@/lib/cache';
+import { createCallRoom } from '@/lib/calls';
 import { clock } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
 
@@ -159,14 +160,34 @@ export default function Thread() {
           <Text style={{ color: t.textDim, fontSize: 12 }}>🔒 end-to-end encrypted</Text>
         </View>
         {conversation ? (
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: '/settings', params: { conversation: conversationId } })
-            }
-            hitSlop={10}
-          >
-            <Text style={{ fontSize: 20 }}>ⓘ</Text>
-          </Pressable>
+          <>
+            {/* WAGGLES_CALLS1 — start (or join a live) E2EE call for this thread.
+                comms_room_create reuses a live room, so a second tapper joins the
+                same call; host=!reused decides seal vs fetch. */}
+            <Pressable
+              onPress={() => {
+                void createCallRoom(conversationId)
+                  .then(({ roomId, host }) =>
+                    router.push({
+                      pathname: '/call/[id]',
+                      params: { id: roomId, role: host ? 'host' : 'join', video: '1' },
+                    }),
+                  )
+                  .catch(() => {});
+              }}
+              hitSlop={10}
+            >
+              <Text style={{ fontSize: 20 }}>📞</Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                router.push({ pathname: '/settings', params: { conversation: conversationId } })
+              }
+              hitSlop={10}
+            >
+              <Text style={{ fontSize: 20 }}>ⓘ</Text>
+            </Pressable>
+          </>
         ) : null}
       </View>
 

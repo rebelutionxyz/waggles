@@ -15,6 +15,8 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@livekit/react-native": "^3.0.0",
+    "@livekit/react-native-webrtc": "^144.2.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@supabase/supabase-js": "^2.45.4",
     "expo": "~52.0.0",
