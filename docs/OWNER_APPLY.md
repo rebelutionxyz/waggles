@@ -220,3 +220,35 @@ by created_at desc;`.
 Table `comms_reports` (reporter/reported → `profiles`, optional conversation, reason 1..2000);
 RLS insert-own + NO client read (operator reads out of band); RPC `comms_report` (SECURITY DEFINER,
 verbatim); anon no access, `authenticated` granted only `comms_report` EXECUTE.
+
+---
+
+# Waggles fork — OWNER APPLY: presence (WAGGLES_PRESENCE1)
+
+Adds online-status presence to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1. Creates
+`bee_presence` + `bee_presence_ping`.
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260929001000_waggles_presence.sql`
+3. Paste and **Run**.
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\presence_probe.sql`, paste, **Run**
+→ **`WAGGLES_PRESENCE PROBE: ALL PASS`**.
+
+## 3. Turn presence on (one-line client flag)
+In `src/lib/comms.ts` set `export const PRESENCE_ENABLED = true;` (ships **false**). The client
+already pings on the Chats screen (fire-and-forget). No edge function, no secrets.
+
+## Note — display is not wired (matches the source)
+`bee_presence` is WRITE-ONLY via the ping (RLS on, no policies) exactly like the constellation, so
+turning the flag on records last-seen but does NOT yet SHOW anyone's status — surfacing presence
+needs a read policy or read RPC that the constellation doesn't define (a source-side gap). A future
+WAGGLES_PRESENCE_SHOW1 would add a `show_presence`-respecting read path + the online dot.
+
+## What this added
+Table `bee_presence` (PK `bee_id`→`profiles`, `last_seen_at`, `show_presence`); RLS on, no policies;
+RPC `bee_presence_ping` (SECURITY DEFINER, verbatim); anon no access, `authenticated` granted only
+`bee_presence_ping` EXECUTE.
