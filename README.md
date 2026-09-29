@@ -9,6 +9,10 @@ Waggles is the **native track** counterpart to the web COMMS surface in
 existing, already-deployed comms core and speaks the identical wire format, so a
 Bee's messages cross web ↔ native transparently.
 
+> **Running your own?** See **[`docs/SELF_HOST.md`](docs/SELF_HOST.md)** — clone →
+> Supabase → run, the feature/flag matrix, and the current stranger-can-run-it
+> gap list.
+
 ---
 
 ## What it is
