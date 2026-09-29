@@ -11,6 +11,7 @@ import {
   rekeyConversation,
   resealConversationKey,
 } from './e2ee';
+import { notifyNewMessage } from './push';
 
 /**
  * COMMS text layer — NATIVE port of TheMANUAL.tech/src/lib/comms.ts.
@@ -315,7 +316,11 @@ async function sendEncrypted(
     p_reply_to: replyTo ?? null,
   });
   if (error) throw error;
-  return (data as Row)?.message_id ?? '';
+  const messageId = (data as Row)?.message_id ?? '';
+  // WAGGLES_PUSH1 — content-blind, client-invoked push to the other participants.
+  // Fire-and-forget + gated on PUSH_ENABLED (no-op until the owner enables push).
+  if (messageId) notifyNewMessage(conversationId, messageId);
+  return messageId;
 }
 
 export async function sendMessage(

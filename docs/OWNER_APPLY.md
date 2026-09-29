@@ -291,3 +291,54 @@ Private bucket `waggles-media`; four `storage.objects` policies scoped to it —
 are ciphertext), UPDATE/DELETE (owner-only). Client: `src/lib/media.ts` (seal→upload,
 sign→fetch→decrypt→local-URI), `e2ee.encryptBytes`/`decryptBytes`, gated composer + `MediaBubble` in
 `app/c/[id].tsx`.
+
+---
+
+# Waggles fork — OWNER APPLY: push notifications (WAGGLES_PUSH1)
+
+Adds **content-blind** push notifications to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1.
+Native (Expo push), not Web Push. The push payload is a GENERIC "New message" — **no sender, no
+content, no preview** (comms_send enforces server-side encryption, so the backend has no plaintext to
+leak). The tap deep-links to the thread; plaintext is decrypted on-device only.
+
+Two moving parts: a DB migration (token storage + subscribe RPCs) and an edge function (the sender).
+Both are owner/LEAD-gated; a self-hoster who doesn't want push simply skips the function and leaves
+the client flag false.
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260929003000_waggles_push.sql`
+3. Paste and **Run**.
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\push_probe.sql`, paste, **Run**
+→ **`WAGGLES_PUSH PROBE: ALL PASS`**.
+
+## 3. Deploy the edge function (LEAD)
+`supabase/functions/push-notify/index.ts` ships to the FORK project. It needs only the project's own
+`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` env (no third-party credential —
+Expo push tokens need no server key). It is client-invoked fire-and-forget after each send;
+content-blind by construction.
+
+## 4. Device smoke test FIRST, then turn push on (one-line client flag)
+Push registration + delivery only work on a real device with an EAS `projectId` in app config (the
+Expo push service issues no simulator tokens). `npx expo install` already added `expo-notifications`
++ `expo-device`. For a production build, add the `expo-notifications` config plugin + (iOS) APNs / a
+`projectId` to `app.json` — a build-config step, left to the owner, not edited here. After a two-account
+device test confirms a generic "New message" arrives and the tap opens the thread, set
+`export const PUSH_ENABLED = true;` in `src/lib/push.ts` (ships **false**). That lights up device
+registration on sign-in, the fire-and-forget invoke after each send, and the tap→thread deep link.
+
+## Note — mute is not yet respected
+The edge function notifies every other participant; it does NOT filter `comms_participants.muted`
+(the WAGGLES_MUTE surface is a separate, independently-gated pass). Wiring the mute filter is a
+follow-up for whenever mute is applied — flagged, not silently skipped.
+
+## What this added
+Table `bee_push_tokens` (PK `token`, `bee_id`→`profiles`, `platform`, `updated_at`); RLS on with an
+own-row SELECT policy, no anon access; RPCs `comms_push_subscribe(text,text)` /
+`comms_push_unsubscribe(text)` (SECURITY DEFINER, anon revoked + authenticated granted). Client:
+`src/lib/push.ts` (register / notify / tap-subscribe, all gated on `PUSH_ENABLED`), a fire-and-forget
+`notifyNewMessage` in `comms.sendEncrypted`, registration on sign-in (`auth.tsx`), tap→thread in
+`app/_layout.tsx`. Edge function `push-notify` (Expo push, content-blind, stale-token cleanup).

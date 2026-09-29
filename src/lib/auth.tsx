@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getHostConfig } from './config';
 import { forgetCurrentBee, initComms } from './comms';
+import { registerPush } from './push';
 import { wipeDeviceIdentity } from './e2ee';
 import { clearAllCache } from './cache';
 import { getSupabase, hasSupabase, initSupabase, resetSupabase } from './supabase';
@@ -54,7 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Publish the E2EE identity key whenever a Bee is signed in.
   useEffect(() => {
     const beeId = session?.user?.id;
-    if (beeId) initComms(beeId).catch(() => {});
+    if (beeId) {
+      initComms(beeId).catch(() => {});
+      // WAGGLES_PUSH1 — register this device for content-blind push (no-op unless
+      // PUSH_ENABLED; best-effort, never blocks sign-in).
+      registerPush().catch(() => {});
+    }
   }, [session?.user?.id]);
 
   const value = useMemo<AuthState>(
