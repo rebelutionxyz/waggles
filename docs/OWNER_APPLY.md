@@ -252,3 +252,42 @@ WAGGLES_PRESENCE_SHOW1 would add a `show_presence`-respecting read path + the on
 Table `bee_presence` (PK `bee_id`→`profiles`, `last_seen_at`, `show_presence`); RLS on, no policies;
 RPC `bee_presence_ping` (SECURITY DEFINER, verbatim); anon no access, `authenticated` granted only
 `bee_presence_ping` EXECUTE.
+
+---
+
+# Waggles fork — OWNER APPLY: media (voice notes + photos) (WAGGLES_MEDIA1)
+
+Adds **E2EE voice notes + photos** to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1. This
+is STORAGE config, not app-schema: it creates a **private** storage bucket `waggles-media` + RLS on
+`storage.objects`. No `comms_*` table/RPC changes — the (encrypted) media pointer rides in the
+existing `comms_messages.body` with `content_type='media'` (already supported by `comms_send`).
+
+**How the encryption works:** the client seals the file bytes under the conversation content key
+(`e2ee.encryptBytes`, the same XChaCha20-Poly1305 AEAD as text) BEFORE upload, so the bucket only
+ever holds ciphertext. Recipients sign a URL, fetch, and decrypt locally. The bucket being private
+means anon can't even fetch the ciphertext.
+
+## 1. Apply the migration (paste — transactional)
+1. SQL Editor of `fzmuobbboknhvpkqetxn`.
+2. Copy the ENTIRE contents of
+   `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\migrations\20260929002000_waggles_media.sql`
+3. Paste and **Run**. (Creating a bucket + `storage.objects` policies needs an owner/admin role —
+   this is why it can't be done from the client.)
+
+## 2. Probe it (paste — read-only)
+Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\media_probe.sql`, paste, **Run**
+→ **`WAGGLES_MEDIA PROBE: ALL PASS`**.
+
+## 3. Device smoke test FIRST, then turn media on (one-line client flag)
+Recording + playback can only be verified on a real device build (tsc can't). Before flipping the
+flag: `npx expo install` already added `expo-av`, `expo-file-system`, `expo-image-picker`; do a dev
+build, record a voice note + send a photo between two accounts, confirm the other side decrypts and
+plays/shows. THEN in `src/lib/media.ts` set `export const MEDIA_ENABLED = true;` (ships **false**).
+That lights up the 🎙️ + 📎 buttons in the composer and the media bubbles.
+
+## What this added
+Private bucket `waggles-media`; four `storage.objects` policies scoped to it — INSERT
+(`authenticated`, only under `media/<own uid>/*`), SELECT (`authenticated`, any object — the bytes
+are ciphertext), UPDATE/DELETE (owner-only). Client: `src/lib/media.ts` (seal→upload,
+sign→fetch→decrypt→local-URI), `e2ee.encryptBytes`/`decryptBytes`, gated composer + `MediaBubble` in
+`app/c/[id].tsx`.

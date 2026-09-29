@@ -286,6 +286,31 @@ export async function decryptBody(ck: Uint8Array, body: string): Promise<string>
   return sodium.to_string(pt);
 }
 
+// ── file-level encryption (WAGGLES_MEDIA1) ───────────────────────────────────
+// Voice notes and media are sealed under the conversation key BEFORE upload, so
+// storage holds only ciphertext. Unlike encryptBody, the FILE case takes/returns
+// raw bytes (nonce‖ciphertext) — no ENC_PREFIX, no base64: the packed bytes are
+// what gets written to storage. Byte-exact port of TheMANUAL/TALK e2ee.encryptBytes
+// (same xchacha20poly1305 AEAD as encryptBody above), adapted to react-native-libsodium.
+export async function encryptBytes(ck: Uint8Array, bytes: Uint8Array): Promise<Uint8Array> {
+  const sodium = await S();
+  const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+  const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(bytes, null, null, nonce, ck);
+  const packed = new Uint8Array(nonce.length + ct.length);
+  packed.set(nonce, 0);
+  packed.set(ct, nonce.length);
+  return packed;
+}
+
+/** Open nonce‖ciphertext produced by encryptBytes. Throws when the key is wrong. */
+export async function decryptBytes(ck: Uint8Array, packed: Uint8Array): Promise<Uint8Array> {
+  const sodium = await S();
+  const npub = sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
+  const nonce = packed.slice(0, npub);
+  const ct = packed.slice(npub);
+  return sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, null, nonce, ck);
+}
+
 // ── recovery code (move identity to a new device) ────────────────────────────
 export async function exportRecoveryCode(beeId: string): Promise<string> {
   const sodium = await S();

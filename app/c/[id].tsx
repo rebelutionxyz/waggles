@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +12,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Audio } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  MEDIA_ENABLED,
+  type CommsMediaPayload,
+  buildImagePayload,
+  buildVoicePayload,
+  decryptMediaToLocalUri,
+  parseMediaPayload,
+} from '@/lib/media';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
 import {
@@ -60,6 +71,9 @@ export default function Thread() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  // WAGGLES_MEDIA1 — active voice recording (null unless recording); gated behind
+  // MEDIA_ENABLED, so this stays null in v1.
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const listRef = useRef<FlatList<CommsMessage>>(null);
 
   // WAGGLES_PINS1 — pinned message ids for this thread (empty + a no-op while
@@ -142,6 +156,65 @@ export default function Thread() {
       };
       await enqueueOutbox(item);
       setPending((p) => [...p, { ...item, pending: true }]);
+    }
+  }
+
+  async function sendMediaPayload(payload: CommsMediaPayload) {
+    try {
+      await sendMessage(conversationId, JSON.stringify(payload), 'media');
+      await refreshMessages();
+    } catch (e) {
+      Alert.alert('Could not send', e instanceof Error ? e.message : 'Please try again.');
+    }
+  }
+
+  async function pickAndSendImage() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (res.canceled || !res.assets?.[0]) return;
+    const a = res.assets[0];
+    try {
+      const payload = await buildImagePayload(conversationId, a.uri, a.mimeType ?? 'image/jpeg', a.width, a.height);
+      await sendMediaPayload(payload);
+    } catch (e) {
+      Alert.alert('Could not send photo', e instanceof Error ? e.message : 'Please try again.');
+    }
+  }
+
+  async function toggleRecording() {
+    // Recording in progress → stop, seal, send.
+    if (recording) {
+      try {
+        await recording.stopAndUnloadAsync();
+        const uri = recording.getURI();
+        const status = await recording.getStatusAsync().catch(() => null);
+        const durSec = status && 'durationMillis' in status ? (status.durationMillis ?? 0) / 1000 : 0;
+        setRecording(null);
+        if (uri) {
+          const payload = await buildVoicePayload(conversationId, uri, 'audio/m4a', durSec);
+          await sendMediaPayload(payload);
+        }
+      } catch (e) {
+        setRecording(null);
+        Alert.alert('Could not send voice note', e instanceof Error ? e.message : 'Please try again.');
+      }
+      return;
+    }
+    // Start recording.
+    try {
+      const perm = await Audio.requestPermissionsAsync();
+      if (!perm.granted) return;
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording: rec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
+      );
+      setRecording(rec);
+    } catch (e) {
+      Alert.alert('Could not start recording', e instanceof Error ? e.message : 'Please try again.');
     }
   }
 
@@ -265,6 +338,12 @@ export default function Thread() {
               );
             }
             const mine = item.senderBeeId === beeId;
+            if (MEDIA_ENABLED && item.contentType === 'media' && !item.undecryptable) {
+              const payload = parseMediaPayload(item.body);
+              if (payload) {
+                return <MediaBubble mine={mine} at={item.createdAt} conversationId={conversationId} payload={payload} />;
+              }
+            }
             return (
               <Bubble
                 mine={mine}
@@ -311,10 +390,20 @@ export default function Thread() {
           backgroundColor: t.surface,
         }}
       >
+        {MEDIA_ENABLED ? (
+          <>
+            <Pressable onPress={pickAndSendImage} hitSlop={8} style={{ paddingBottom: 10 }}>
+              <Text style={{ fontSize: 22 }}>📎</Text>
+            </Pressable>
+            <Pressable onPress={toggleRecording} hitSlop={8} style={{ paddingBottom: 10 }}>
+              <Text style={{ fontSize: 22 }}>{recording ? '⏹️' : '🎙️'}</Text>
+            </Pressable>
+          </>
+        ) : null}
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Message"
+          placeholder={recording ? 'Recording… tap ⏹️ to send' : 'Message'}
           placeholderTextColor={t.textDim}
           multiline
           style={{
@@ -392,6 +481,100 @@ function Bubble(props: {
             {r.count > 1 ? r.count : ''}
           </Text>
         ))}
+      </View>
+    </Pressable>
+  );
+}
+
+// WAGGLES_MEDIA1 — E2EE voice-note / image bubble. The file bytes are fetched +
+// decrypted lazily (on first tap for audio, on mount for images) to a local
+// cache URI; RN plays/renders from that URI. Gated behind MEDIA_ENABLED at the
+// call site, so this is dead code in v1 until the owner flips the flag.
+function MediaBubble(props: {
+  mine: boolean;
+  at: string;
+  conversationId: string;
+  payload: CommsMediaPayload;
+}) {
+  const t = useTheme();
+  const { mine, at, conversationId, payload } = props;
+  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  const ensureLocal = useCallback(async (): Promise<string | null> => {
+    if (localUri) return localUri;
+    setBusy(true);
+    try {
+      const uri = await decryptMediaToLocalUri(conversationId, payload);
+      setLocalUri(uri);
+      return uri;
+    } catch {
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }, [localUri, conversationId, payload]);
+
+  useEffect(() => {
+    if (payload.kind === 'image') void ensureLocal();
+    return () => {
+      void soundRef.current?.unloadAsync().catch(() => {});
+    };
+  }, [payload.kind, ensureLocal]);
+
+  async function playAudio() {
+    const uri = await ensureLocal();
+    if (!uri) return;
+    try {
+      await soundRef.current?.unloadAsync().catch(() => {});
+      const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true });
+      soundRef.current = sound;
+    } catch {
+      /* playback best-effort */
+    }
+  }
+
+  const bubbleStyle = {
+    alignSelf: mine ? ('flex-end' as const) : ('flex-start' as const),
+    maxWidth: '82%' as const,
+    backgroundColor: mine ? t.bubbleMine : t.bubbleTheirs,
+    borderColor: t.border,
+    borderWidth: mine ? 0 : 1,
+    borderRadius: 18,
+    padding: payload.kind === 'image' ? 4 : 12,
+  };
+  const ink = mine ? t.bubbleMineInk : t.bubbleTheirsInk;
+
+  if (payload.kind === 'image') {
+    const ratio = payload.w && payload.h ? payload.w / payload.h : 1;
+    return (
+      <View style={bubbleStyle}>
+        {localUri ? (
+          <Image
+            source={{ uri: localUri }}
+            style={{ width: 200, height: 200 / (ratio || 1), borderRadius: 14 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={{ width: 200, height: 150, alignItems: 'center', justifyContent: 'center' }}>
+            {busy ? <ActivityIndicator color={ink} /> : <Text style={{ color: ink }}>🔒 photo</Text>}
+          </View>
+        )}
+        <Text style={{ color: ink, fontSize: 10, opacity: 0.7, marginTop: 3, marginLeft: 4 }}>{clock(at)}</Text>
+      </View>
+    );
+  }
+
+  // audio
+  const dur = payload.dur ?? 0;
+  const label = dur > 0 ? `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}` : 'Voice message';
+  return (
+    <Pressable onPress={playAudio} style={{ ...bubbleStyle, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      {busy ? <ActivityIndicator color={ink} /> : <Text style={{ fontSize: 20 }}>▶️</Text>}
+      <View>
+        <Text style={{ color: ink, fontSize: 15 }}>🎙️ {label}</Text>
+        <Text style={{ color: ink, fontSize: 10, opacity: 0.7 }}>{clock(at)}</Text>
       </View>
     </Pressable>
   );
