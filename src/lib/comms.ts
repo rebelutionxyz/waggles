@@ -22,13 +22,12 @@ import { notifyNewMessage } from './push';
  *
  * Scope note (v1 fork): text, blocks, typing, safety numbers and realtime are
  * ported AND live. Reactions, groups, presence, disappearing messages, mute,
- * reporting and pins are ported but GATED OFF — the fork bundle deliberately
- * ships none of their RPCs (WAGGLES_F3-ACK: v1 MVP is E2EE 1:1 text, keep the
- * self-hostable surface minimal). See the capability flags below. Voice
- * messages, media object-URL playback, and LiveKit rooms/roulette (all of which
- * lean on browser Blob/URL/getUserMedia) are intentionally deferred — see README.
- * PINS are ported but GATED OFF against the fork backend, which does not create
- * `comms_pins` (see the Pins section below).
+ * reporting and pins are ALSO LIVE as of WAGGLES_FLIP_GROUPS1 — the owner applied
+ * all seven feature migrations cleanly (OWNER_RULINGS_20260929A), so their RPCs
+ * exist and the capability flags below are now `true`. Voice messages + media
+ * (WAGGLES_MEDIA1) and push (WAGGLES_PUSH1) are BUILT but still flag-gated off,
+ * pending owner infra (a storage bucket / an edge-fn deploy) + a device test —
+ * see src/lib/media.ts, src/lib/push.ts and docs/OWNER_APPLY.md.
  */
 
 function req() {
@@ -362,12 +361,14 @@ export async function unsendMessage(messageId: string): Promise<void> {
 // (absent data is honestly "none"), a WRITE fails LOUD (never tell a Bee
 // something was saved when no RPC existed to save it). Flip these when a
 // bundle version ships the functions.
-export const GROUPS_ENABLED = false;
-export const REACTIONS_ENABLED = false;
-export const DISAPPEARING_ENABLED = false;
-export const MUTE_ENABLED = false;
-export const REPORTING_ENABLED = false;
-export const PRESENCE_ENABLED = false;
+// WAGGLES_FLIP_GROUPS1 (OWNER_RULINGS_20260929A): the owner applied all seven
+// feature migrations cleanly, so the RPCs/tables now exist — flags ON.
+export const GROUPS_ENABLED = true;
+export const REACTIONS_ENABLED = true;
+export const DISAPPEARING_ENABLED = true;
+export const MUTE_ENABLED = true;
+export const REPORTING_ENABLED = true;
+export const PRESENCE_ENABLED = true;
 
 const NOT_IN_BUILD = (what: string) => new Error(`${what} is not available in this build.`);
 
@@ -571,9 +572,10 @@ export async function presencePing(): Promise<void> {
 //
 // So pins are gated rather than deleted: the bundle stays as F1 ratified it, the
 // code survives for the later fork pass that turns them on, and nothing calls a
-// table that is not there. Flip `PINS_ENABLED` when a bundle version ships
-// `comms_pins`. No UI path reaches these today.
-export const PINS_ENABLED = false;
+// table that is not there.
+// WAGGLES_FLIP_GROUPS1 (OWNER_RULINGS_20260929A): the pins migration
+// (…_waggles_pins.sql, ships `comms_pins`) is applied — flag ON.
+export const PINS_ENABLED = true;
 
 const PINS_OFF = 'Pinned messages are not available in this build.';
 

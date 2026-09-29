@@ -70,10 +70,11 @@ Nothing here contains secrets. Nothing here has been applied by any agent.
 2. Paste and **Run**. Success = the NOTICES end with **`WAGGLES_GROUPS PROBE: ALL PASS`**. Any
    `FAIL:` line = stop and report it.
 
-## 3. Turn groups on (one-line client flag)
-In `src/lib/comms.ts`, set `export const GROUPS_ENABLED = true;` (it ships **false**). Groups do not
-appear in the app until this migration is applied AND the flag is flipped. Commit the flip yourself.
-No edge function and no secrets for groups.
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + its probe pass, **tell LEAD it applied cleanly**;
+a terminal flips `GROUPS_ENABLED` in the repo and commits it. (Done for the whole v1 feature set in
+WAGGLES_FLIP_GROUPS1 — `GROUPS_ENABLED` is now `true`.) Groups do not appear until both the migration
+is applied AND the flag is on. No edge function, no secrets.
 
 ## What this added
 RPCs `comms_create_group` / `comms_group_add` / `comms_group_remove` / `comms_group_set_add_policy`
@@ -98,8 +99,9 @@ v0.1 (WAGGLES_F4). Unlike groups, this CREATES a table (`comms_reactions`) — t
 1. Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\reactions_probe.sql`, paste, **Run**.
 2. Success = NOTICES end with **`WAGGLES_REACTIONS PROBE: ALL PASS`**.
 
-## 3. Turn reactions on (one-line client flag)
-In `src/lib/comms.ts` set `export const REACTIONS_ENABLED = true;` (ships **false**). This also
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass, **tell LEAD it applied cleanly**; a
+terminal flips `REACTIONS_ENABLED` (done in WAGGLES_FLIP_GROUPS1 — now `true`). Turning it on also
 switches on the `comms_reactions` embed in the message query (kept off while the table was absent).
 No edge function, no secrets.
 
@@ -125,8 +127,9 @@ Creates `comms_pins` + `comms_pin`/`comms_unpin` (the core deferred them).
 1. Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\pins_probe.sql`, paste, **Run**.
 2. Success = NOTICES end with **`WAGGLES_PINS PROBE: ALL PASS`**.
 
-## 3. Turn pins on (one-line client flag)
-In `src/lib/comms.ts` set `export const PINS_ENABLED = true;` (ships **false**). This lights up the
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass, **tell LEAD it applied cleanly**; a
+terminal flips `PINS_ENABLED` (done in WAGGLES_FLIP_GROUPS1 — now `true`). It lights up the
 long-press Pin/Unpin action and the 📌 marker in the thread. No edge function, no secrets.
 
 ## What this added
@@ -152,8 +155,9 @@ Adds NO tables/columns — the core already has `comms_participants.muted`; this
 Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\mute_probe.sql`, paste, **Run** →
 **`WAGGLES_MUTE PROBE: ALL PASS`**.
 
-## 3. Turn mute on (one-line client flag)
-In `src/lib/comms.ts` set `export const MUTE_ENABLED = true;` (ships **false**). Lights up the mute
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass, **tell LEAD it applied cleanly**; a
+terminal flips `MUTE_ENABLED` (done in WAGGLES_FLIP_GROUPS1 — now `true`). It lights up the mute
 toggle in a conversation's Settings. No edge function, no secrets.
 
 ## What this added
@@ -182,9 +186,11 @@ messages are never swept server-side (the client still hides them locally).
 Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\disappearing_probe.sql`, paste,
 **Run** → **`WAGGLES_DISAPPEAR PROBE: ALL PASS`** (a `pg_cron NOT enabled` WARNING means finish step 0).
 
-## 3. Turn disappearing on (one-line client flag)
-In `src/lib/comms.ts` set `export const DISAPPEARING_ENABLED = true;` (ships **false**). Lights up
-the timer picker in a conversation's Settings. No edge function, no secrets.
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass (and `pg_cron` is on, step 0),
+**tell LEAD it applied cleanly**; a terminal flips `DISAPPEARING_ENABLED` (done in
+WAGGLES_FLIP_GROUPS1 — now `true`). It lights up the timer picker in a conversation's Settings.
+No edge function, no secrets.
 
 ## What this added
 RPCs `comms_set_disappearing` (user-callable) + `comms_sweep_expired` (cron-only; deletes
@@ -207,8 +213,9 @@ Adds user reporting to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messaging v0.1.
 Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\reporting_probe.sql`, paste, **Run**
 → **`WAGGLES_REPORT PROBE: ALL PASS`**.
 
-## 3. Turn reporting on (one-line client flag)
-In `src/lib/comms.ts` set `export const REPORTING_ENABLED = true;` (ships **false**). Lights up the
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass, **tell LEAD it applied cleanly**; a
+terminal flips `REPORTING_ENABLED` (done in WAGGLES_FLIP_GROUPS1 — now `true`). It lights up the
 "Report" action in a conversation's Settings.
 
 ## Reading reports (operator)
@@ -238,9 +245,10 @@ Adds online-status presence to **`fzmuobbboknhvpkqetxn`**. Prerequisite: messagi
 Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\presence_probe.sql`, paste, **Run**
 → **`WAGGLES_PRESENCE PROBE: ALL PASS`**.
 
-## 3. Turn presence on (one-line client flag)
-In `src/lib/comms.ts` set `export const PRESENCE_ENABLED = true;` (ships **false**). The client
-already pings on the Chats screen (fire-and-forget). No edge function, no secrets.
+## 3. Enabling it — tell LEAD it applied cleanly
+Don't edit the flag yourself. Once this migration + probe pass, **tell LEAD it applied cleanly**; a
+terminal flips `PRESENCE_ENABLED` (done in WAGGLES_FLIP_GROUPS1 — now `true`). The client already
+pings on the Chats screen (fire-and-forget). No edge function, no secrets.
 
 ## Note — display is not wired (matches the source)
 `bee_presence` is WRITE-ONLY via the ping (RLS on, no policies) exactly like the constellation, so
@@ -278,12 +286,12 @@ means anon can't even fetch the ciphertext.
 Open `C:\Users\Butch\Documents\HONEYCOMB\waggles\supabase\probe\media_probe.sql`, paste, **Run**
 → **`WAGGLES_MEDIA PROBE: ALL PASS`**.
 
-## 3. Device smoke test FIRST, then turn media on (one-line client flag)
-Recording + playback can only be verified on a real device build (tsc can't). Before flipping the
-flag: `npx expo install` already added `expo-av`, `expo-file-system`, `expo-image-picker`; do a dev
-build, record a voice note + send a photo between two accounts, confirm the other side decrypts and
-plays/shows. THEN in `src/lib/media.ts` set `export const MEDIA_ENABLED = true;` (ships **false**).
-That lights up the 🎙️ + 📎 buttons in the composer and the media bubbles.
+## 3. Device smoke test FIRST, then tell LEAD to enable it
+Recording + playback can only be verified on a real device build (tsc can't). `npx expo install`
+already added `expo-av`, `expo-file-system`, `expo-image-picker`; do a dev build, record a voice note
++ send a photo between two accounts, confirm the other side decrypts and plays/shows. THEN **tell LEAD
+the bucket applied + the device test passed** — a terminal flips `MEDIA_ENABLED` in `src/lib/media.ts`
+(ships **false**), don't edit it yourself. That lights up the 🎙️ + 📎 buttons and the media bubbles.
 
 ## What this added
 Private bucket `waggles-media`; four `storage.objects` policies scoped to it — INSERT
@@ -326,9 +334,10 @@ Push registration + delivery only work on a real device with an EAS `projectId` 
 Expo push service issues no simulator tokens). `npx expo install` already added `expo-notifications`
 + `expo-device`. For a production build, add the `expo-notifications` config plugin + (iOS) APNs / a
 `projectId` to `app.json` — a build-config step, left to the owner, not edited here. After a two-account
-device test confirms a generic "New message" arrives and the tap opens the thread, set
-`export const PUSH_ENABLED = true;` in `src/lib/push.ts` (ships **false**). That lights up device
-registration on sign-in, the fire-and-forget invoke after each send, and the tap→thread deep link.
+device test confirms a generic "New message" arrives and the tap opens the thread, **tell LEAD the
+migration applied + the edge fn deployed + the device test passed** — a terminal flips `PUSH_ENABLED`
+in `src/lib/push.ts` (ships **false**), don't edit it yourself. That lights up device registration on
+sign-in, the fire-and-forget invoke after each send, and the tap→thread deep link.
 
 ## Note — mute is not yet respected
 The edge function notifies every other participant; it does NOT filter `comms_participants.muted`

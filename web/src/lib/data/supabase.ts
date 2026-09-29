@@ -440,12 +440,13 @@ async function ensureConversationKeySynced(
  * group created when no RPC existed to do it is the one outcome worse than an
  * error. Flip these when a bundle version ships the functions.
  */
-const GROUPS_ENABLED = false;
-const REACTIONS_ENABLED = false;
-const DISAPPEARING_ENABLED = false;
-const MUTE_ENABLED = false;
-const REPORTING_ENABLED = false;
-const PINS_ENABLED = false;
+// WAGGLES_FLIP_GROUPS1 (OWNER_RULINGS_20260929A): all feature migrations applied — flags ON.
+const GROUPS_ENABLED = true;
+const REACTIONS_ENABLED = true;
+const DISAPPEARING_ENABLED = true;
+const MUTE_ENABLED = true;
+const REPORTING_ENABLED = true;
+const PINS_ENABLED = true;
 
 const notInBuild = (what: string) => ({ ok: false as const, reason: `${what} is not available in this build.` });
 
