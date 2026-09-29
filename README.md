@@ -114,9 +114,12 @@ is the owner's gate.
   (`expo-av`, `expo-file-system`) are a follow-up. Text, reactions, pins, groups,
   disappearing messages, blocks, presence, typing, and safety numbers are live.
 - **LiveKit calls / spaces / roulette** — out of scope for the messenger v1.
-- **Cache-at-rest encryption** — the offline cache holds decrypted bodies in the
-  app sandbox; the identity secret stays in the keystore. A hardened build moves
-  the cache behind SQLCipher / an encrypted store.
+- **Cache-at-rest encryption** — DONE (WAGGLES_CACHE_ENC1). The offline cache
+  (conversation list, message tails, outbox) is sealed under a device-local Cache
+  Encryption Key (XChaCha20-Poly1305; CEK in the OS keystore via expo-secure-store)
+  before it touches AsyncStorage, and opened on read — no decrypted body is written
+  to disk in the clear. Sign-out wipes the CEK. See `src/lib/cache.ts` +
+  `e2ee.sealCache`/`openCache`.
 - **Push notifications** — `expo-notifications` + a server hook is a follow-up.
 
 ## Backend it mounts

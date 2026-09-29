@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { openCache, sealCache, wipeCacheKey } from './e2ee';
 import type { CommsMessage, Conversation } from './comms';
 
 /**
@@ -9,20 +10,35 @@ import type { CommsMessage, Conversation } from './comms';
  * outbox and flushed when connectivity returns. This is the sovereign, offline
  * posture: the device is useful on its own.
  *
- * POSTURE NOTE: cached message bodies are the DECRYPTED plaintext, held in the
- * app's private sandbox (not the OS keystore). The identity SECRET stays in
- * secure storage; this cache is a convenience mirror. A hardened build should
- * move it behind SQLCipher / an encrypted store — tracked in the README. Sign-out
- * calls clearAllCache().
+ * AT-REST ENCRYPTION (WAGGLES_CACHE_ENC1): although these values are DECRYPTED
+ * plaintext logically, they are NOT written to disk in the clear. Every value is
+ * sealed under a device-local Cache Encryption Key (e2ee.sealCache / openCache;
+ * CEK in the OS keystore) before it touches AsyncStorage, and opened on read.
+ * A value that cannot be opened — a legacy plaintext entry, or one sealed under a
+ * since-wiped CEK — is treated as a cache miss and re-fetched, never trusted.
+ * Sign-out calls clearAllCache() + wipeCacheKey().
  */
 
 const CONV_KEY = 'waggles.cache.conversations.v1';
 const OUTBOX_KEY = 'waggles.outbox.v1';
 const msgKey = (id: string) => `waggles.cache.msgs.v1:${id}`;
 
+// ── sealed AsyncStorage helpers ──
+async function setSealed(key: string, value: unknown): Promise<void> {
+  const sealed = await sealCache(JSON.stringify(value));
+  await AsyncStorage.setItem(key, sealed);
+}
+async function getSealed<T>(key: string, fallback: T): Promise<T> {
+  const raw = await AsyncStorage.getItem(key);
+  if (!raw) return fallback;
+  const plain = await openCache(raw);
+  if (plain === null) return fallback; // legacy plaintext / unreadable → cache miss
+  return JSON.parse(plain) as T;
+}
+
 export async function cacheConversations(list: Conversation[]): Promise<void> {
   try {
-    await AsyncStorage.setItem(CONV_KEY, JSON.stringify(list));
+    await setSealed(CONV_KEY, list);
   } catch {
     /* cache is best-effort */
   }
@@ -30,8 +46,7 @@ export async function cacheConversations(list: Conversation[]): Promise<void> {
 
 export async function loadCachedConversations(): Promise<Conversation[]> {
   try {
-    const raw = await AsyncStorage.getItem(CONV_KEY);
-    return raw ? (JSON.parse(raw) as Conversation[]) : [];
+    return await getSealed<Conversation[]>(CONV_KEY, []);
   } catch {
     return [];
   }
@@ -41,7 +56,7 @@ export async function cacheMessages(conversationId: string, msgs: CommsMessage[]
   try {
     // keep the tail — bounded so the cache can't grow without limit
     const tail = msgs.slice(-300);
-    await AsyncStorage.setItem(msgKey(conversationId), JSON.stringify(tail));
+    await setSealed(msgKey(conversationId), tail);
   } catch {
     /* best-effort */
   }
@@ -49,8 +64,7 @@ export async function cacheMessages(conversationId: string, msgs: CommsMessage[]
 
 export async function loadCachedMessages(conversationId: string): Promise<CommsMessage[]> {
   try {
-    const raw = await AsyncStorage.getItem(msgKey(conversationId));
-    return raw ? (JSON.parse(raw) as CommsMessage[]) : [];
+    return await getSealed<CommsMessage[]>(msgKey(conversationId), []);
   } catch {
     return [];
   }
@@ -67,8 +81,7 @@ export interface OutboxItem {
 
 export async function getOutbox(): Promise<OutboxItem[]> {
   try {
-    const raw = await AsyncStorage.getItem(OUTBOX_KEY);
-    return raw ? (JSON.parse(raw) as OutboxItem[]) : [];
+    return await getSealed<OutboxItem[]>(OUTBOX_KEY, []);
   } catch {
     return [];
   }
@@ -77,12 +90,12 @@ export async function getOutbox(): Promise<OutboxItem[]> {
 export async function enqueueOutbox(item: OutboxItem): Promise<void> {
   const list = await getOutbox();
   list.push(item);
-  await AsyncStorage.setItem(OUTBOX_KEY, JSON.stringify(list));
+  await setSealed(OUTBOX_KEY, list);
 }
 
 export async function removeOutbox(itemId: string): Promise<void> {
   const list = (await getOutbox()).filter((i) => i.id !== itemId);
-  await AsyncStorage.setItem(OUTBOX_KEY, JSON.stringify(list));
+  await setSealed(OUTBOX_KEY, list);
 }
 
 export async function outboxFor(conversationId: string): Promise<OutboxItem[]> {
@@ -96,6 +109,9 @@ export async function clearAllCache(): Promise<void> {
       (k) => k.startsWith('waggles.cache.') || k === OUTBOX_KEY || k.startsWith('hc_sn_verified:'),
     );
     if (mine.length) await AsyncStorage.multiRemove(mine);
+    // Drop the device CEK too: once the sealed values are gone, the key has no
+    // purpose, and wiping it makes any residual ciphertext permanently unreadable.
+    await wipeCacheKey();
   } catch {
     /* best-effort */
   }

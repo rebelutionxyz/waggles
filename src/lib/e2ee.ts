@@ -311,6 +311,60 @@ export async function decryptBytes(ck: Uint8Array, packed: Uint8Array): Promise<
   return sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, null, nonce, ck);
 }
 
+// ── at-rest cache encryption (WAGGLES_CACHE_ENC1) ─────────────────────────────
+// The offline cache (conversation list, message tails, outbox) holds DECRYPTED
+// plaintext for offline-first UX. To keep that plaintext off disk in the clear,
+// it is sealed under a device-local Cache Encryption Key (CEK) — 256-bit,
+// generated once and kept in the OS keystore via expo-secure-store, exactly like
+// the identity secret. The CEK never leaves the device and is not derived from,
+// nor does it touch, the conversation keys — it is purely local at-rest defence.
+const CACHE_KEY_STORE = 'waggles_cache_key_v1';
+const CACHE_ENC_PREFIX = 'wgc1:'; // marks a sealed value; anything else = legacy/foreign
+
+async function getCacheKey(): Promise<Uint8Array> {
+  const sodium = await S();
+  const raw = await SecureStore.getItemAsync(CACHE_KEY_STORE);
+  if (raw) return b64Decode(raw);
+  const key = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_KEYBYTES);
+  await SecureStore.setItemAsync(CACHE_KEY_STORE, await b64Encode(key));
+  return key;
+}
+
+/** Seal a cache value under the device CEK. Returns prefixed base64(nonce‖ct). */
+export async function sealCache(plaintext: string): Promise<string> {
+  const sodium = await S();
+  const cek = await getCacheKey();
+  const packed = await encryptBytes(cek, sodium.from_string(plaintext));
+  return CACHE_ENC_PREFIX + sodium.to_base64(packed, sodium.base64_variants.ORIGINAL);
+}
+
+/**
+ * Open a sealed cache value. Returns null for a value that is not ours to read —
+ * a legacy PLAINTEXT entry written before this feature, or one sealed under a
+ * CEK that no longer exists (keystore cleared). Callers treat null as a cache
+ * miss and re-fetch, so old plaintext entries are simply dropped, never trusted.
+ */
+export async function openCache(stored: string): Promise<string | null> {
+  if (!stored.startsWith(CACHE_ENC_PREFIX)) return null;
+  try {
+    const sodium = await S();
+    const cek = await getCacheKey();
+    const packed = sodium.from_base64(stored.slice(CACHE_ENC_PREFIX.length), sodium.base64_variants.ORIGINAL);
+    return sodium.to_string(await decryptBytes(cek, packed));
+  } catch {
+    return null;
+  }
+}
+
+/** Drop the device CEK (called on full sign-out so cached ciphertext is unreadable). */
+export async function wipeCacheKey(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(CACHE_KEY_STORE);
+  } catch {
+    /* best-effort */
+  }
+}
+
 // ── recovery code (move identity to a new device) ────────────────────────────
 export async function exportRecoveryCode(beeId: string): Promise<string> {
   const sodium = await S();
