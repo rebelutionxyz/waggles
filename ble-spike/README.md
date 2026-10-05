@@ -10,10 +10,44 @@ real Waggles messenger, and this spike must stay isolated from it (its own
 
 ## What it does
 
-Single screen. On launch it creates a `BleManager`, fires the runtime
-Bluetooth permission prompt (Android), and renders the live BLE **adapter
-state** (powered on/off/unauthorized/…). No scanning, no advertising loop, no
-mesh — that is the next pass.
+The mesh test screen (`WAGGLES_MESH_CORE1`): shows discovered **peers**, a
+**Send** box, and a **live log** of SENT / RECV / RELAY(from→to) / DROP-DUP /
+TTL-STOP. Built to watch **A originate, B relay, C receive** with A and C out of
+direct BLE range.
+
+### Mesh model (`src/mesh/`)
+
+Protocol-simple store-and-forward gossip — a proof, not a final wire format:
+
+- **Message** `{ id, origin, ttl, payload, seen[] }`.
+- **On receive**: `id` already in the bounded **seen-cache** → DROP (dedup /
+  loop guard); else **deliver locally**, **decrement ttl**, and if `ttl > 0`
+  **re-broadcast** to peers not already in `seen[]` (store-and-forward).
+- **TTL** hop limit (default 5) + **bounded seen-cache** (FIFO, default 512)
+  stop loops and floods.
+
+`MeshEngine` is pure and transport-agnostic (`engine.ts`); `transport.ts` has
+the `Transport` interface, a `MeshNode` glue layer, and an `InMemoryNetwork`
+that wires A/B/C with an explicit topology so the relay is proven with **no
+hardware**. Run it:
+
+```bash
+npm test       # tsc + node --test — dedup, ttl, seen-cache, A→B→C, loop guard, kill-B, codec
+```
+
+### ⚠️ BLE dual-role constraint (real, must-know)
+
+`react-native-ble-plx` is **central-only** — it can scan / connect / read /
+write / subscribe, but it **cannot advertise or run a GATT server** (no
+`startAdvertising`). The mesh needs the **dual role** (each node both advertises
+*and* scans). `src/ble/bleTransport.ts` implements the **central half** fully;
+the **peripheral half** is a documented seam (`startPeripheral()`) that needs a
+companion native module — e.g. **`react-native-ble-advertiser`** (advertise) or
+a GATT-server module — added as an extra Expo config plugin + dev-client
+rebuild. **Until that module is added, two ble-plx-only nodes cannot discover
+each other.** The engine, codec, and central half are proven and ready to drive
+once it lands. (iOS further restricts the peripheral role in background — Android
+is the reliable dual-role target, which is why the device test is Android.)
 
 ## Device reality (owner-confirmed)
 
@@ -50,5 +84,29 @@ Bluetooth permission prompt, and confirm the adapter state reads **"Powered on
 
 ```bash
 npm run typecheck   # tsc --noEmit
+npm test            # mesh relay unit tests (no device)
 npm run doctor      # expo-doctor
 ```
+
+## 3-Android mesh test runbook (owner, deferred)
+
+Proves A → B → C relay with A and C **not** in direct range. **Prerequisite:**
+the peripheral module must be added first (see the dual-role constraint above) —
+without it the phones will not discover each other.
+
+1. Add a peripheral/advertiser module + config plugin, then
+   `npx eas build -p android --profile preview` and install the APK on **three**
+   Android phones (A, B, C).
+2. Launch the app on all three; accept Bluetooth permission on each. Each shows
+   its own `node <id>`.
+3. **Geometry:** place B in the middle. Put A and C far enough apart (or shield
+   one, e.g. foil / a few rooms) that **A and C do NOT list each other as
+   peers**, but **both list B** (and B lists both A and C).
+4. On **A**, type a message and Send. **Expected:** A logs `SEND`; B logs `RECV`
+   then `RELAY A→C`; **C logs `RECV`/`DELIVER`** — delivered via B though A and C
+   never saw each other. Sending again shows `DROP-DUP` on repeats.
+5. **Kill B** (quit the app / Bluetooth off on B). Send again from A.
+   **Expected:** C receives **nothing** — the only path was through B.
+
+Record on each phone: peers listed, and the SEND/RECV/RELAY/DELIVER/DROP log
+lines, to confirm the hop path.

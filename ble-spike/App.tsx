@@ -1,174 +1,160 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  FlatList,
   PermissionsAndroid,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type Permission,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { BleManager, State, type Subscription } from 'react-native-ble-plx';
+import { BleManager } from 'react-native-ble-plx';
+
+import { MeshNode } from './src/mesh/transport';
+import { BleTransport } from './src/ble/bleTransport';
+import type { MeshMessage } from './src/mesh/types';
 
 /**
- * WAGGLES_SCAFFOLD1 — throwaway BLE proving ground.
+ * WAGGLES_MESH_CORE1 — mesh test screen.
  *
- * Trivial single screen: boots a BleManager, fires the runtime Bluetooth
- * permission prompt (Android), and renders the live BLE adapter state.
- * NO mesh, NO scan loop, NO TALK/COMMS wiring — that is WAGGLES_MESH_CORE1.
+ * Discovered peers, a Send box, and a live log of SENT / RECV / RELAYED / DROP.
+ * On Android this drives the real ble-plx CENTRAL role; the PERIPHERAL role
+ * (so other nodes can find THIS one) needs a companion module — see
+ * src/ble/bleTransport.ts. Relay logic itself is unit-tested (npm test).
  */
 
-type PermStatus = 'unknown' | 'requesting' | 'granted' | 'denied' | 'not-required';
+const NODE_ID = `n-${Math.random().toString(36).slice(2, 7)}`;
 
-const ANDROID_31_PERMS: Permission[] = [
-  PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-  PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-  PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-  PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-];
-
-async function requestBlePermissions(): Promise<PermStatus> {
-  if (Platform.OS !== 'android') {
-    // iOS prompts automatically on first BLE use via the Info.plist strings.
-    return 'not-required';
-  }
-
-  // BLUETOOTH_SCAN / _CONNECT / _ADVERTISE exist from Android 12 (API 31).
-  // On older devices ACCESS_FINE_LOCATION alone gates BLE scanning.
-  const apiLevel = typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
-  const perms: Permission[] =
-    apiLevel >= 31 ? ANDROID_31_PERMS : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-
-  const results = await PermissionsAndroid.requestMultiple(perms);
-  const allGranted = perms.every(
-    (p) => results[p] === PermissionsAndroid.RESULTS.GRANTED,
-  );
-  return allGranted ? 'granted' : 'denied';
+function newMessageId(): string {
+  return `${NODE_ID}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function labelForState(state: State): string {
-  switch (state) {
-    case State.PoweredOn:
-      return 'Powered on — ready';
-    case State.PoweredOff:
-      return 'Powered off — turn Bluetooth on';
-    case State.Unauthorized:
-      return 'Unauthorized — grant Bluetooth permission';
-    case State.Unsupported:
-      return 'Unsupported on this device';
-    case State.Resetting:
-      return 'Resetting…';
-    case State.Unknown:
-    default:
-      return 'Unknown';
-  }
+async function requestBlePermissions(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  const apiLevel = typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
+  const perms: Permission[] =
+    apiLevel >= 31
+      ? [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]
+      : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+  const res = await PermissionsAndroid.requestMultiple(perms);
+  return perms.every((p) => res[p] === PermissionsAndroid.RESULTS.GRANTED);
 }
 
 export default function App() {
+  const transportRef = useRef<BleTransport | null>(null);
+  const nodeRef = useRef<MeshNode | null>(null);
   const managerRef = useRef<BleManager | null>(null);
-  const [adapterState, setAdapterState] = useState<State>(State.Unknown);
-  const [permStatus, setPermStatus] = useState<PermStatus>('unknown');
+
+  const [peers, setPeers] = useState<string[]>([]);
+  const [log, setLog] = useState<string[]>([]);
+  const [draft, setDraft] = useState('');
+
+  const addLog = useCallback((line: string) => {
+    setLog((prev) => [`${new Date().toLocaleTimeString()}  ${line}`, ...prev].slice(0, 200));
+  }, []);
 
   useEffect(() => {
     const manager = new BleManager();
     managerRef.current = manager;
 
-    let sub: Subscription | undefined;
+    const transport = new BleTransport(manager, NODE_ID, {
+      onPeerFound: (id) => setPeers((p) => (p.includes(id) ? p : [...p, id])),
+      onPeerLost: (id) => setPeers((p) => p.filter((x) => x !== id)),
+      onLog: addLog,
+    });
+    transportRef.current = transport;
+
+    nodeRef.current = new MeshNode(
+      transport,
+      (msg: MeshMessage) => addLog(`DELIVER ${msg.id} "${msg.payload}" (from ${msg.origin})`),
+      addLog,
+    );
 
     (async () => {
-      setPermStatus('requesting');
-      const status = await requestBlePermissions();
-      setPermStatus(status);
-
-      // emitCurrentState=true pushes the current state immediately.
-      sub = manager.onStateChange((s) => setAdapterState(s), true);
+      const ok = await requestBlePermissions();
+      addLog(ok ? 'permissions granted' : 'permissions DENIED');
+      transport.startPeripheral(); // logs the ble-plx peripheral-role limitation
+      transport.startScanning();
+      addLog(`scanning as ${NODE_ID}`);
     })();
 
     return () => {
-      sub?.remove();
+      transport.destroy();
       manager.destroy();
-      managerRef.current = null;
     };
-  }, []);
+  }, [addLog]);
 
-  const reRequest = useCallback(async () => {
-    setPermStatus('requesting');
-    setPermStatus(await requestBlePermissions());
-    const current = await managerRef.current?.state();
-    if (current) setAdapterState(current);
-  }, []);
+  const send = useCallback(() => {
+    const text = draft.trim();
+    if (!text || !nodeRef.current) return;
+    nodeRef.current.send(text, newMessageId());
+    setDraft('');
+  }, [draft]);
 
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
-      <Text style={styles.title}>Waggles BLE Spike</Text>
-      <Text style={styles.subtitle}>mesh proving ground · no networking yet</Text>
+      <StatusBar style="light" />
+      <Text style={styles.title}>Waggles Mesh</Text>
+      <Text style={styles.subtitle}>node {NODE_ID} · BLE store-and-forward</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Adapter state</Text>
-        <Text style={styles.value}>{labelForState(adapterState)}</Text>
+      <View style={styles.row}>
+        <Text style={styles.label}>Peers ({peers.length})</Text>
+        <Text style={styles.peers}>{peers.length ? peers.join(', ') : 'none in range'}</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Permissions</Text>
-        <Text style={styles.value}>{permStatus}</Text>
+      <View style={styles.sendRow}>
+        <TextInput
+          style={styles.input}
+          placeholder="message…"
+          placeholderTextColor="#6b6b74"
+          value={draft}
+          onChangeText={setDraft}
+          onSubmitEditing={send}
+          returnKeyType="send"
+        />
+        <Pressable style={styles.button} onPress={send}>
+          <Text style={styles.buttonText}>Send</Text>
+        </Pressable>
       </View>
 
-      <Pressable style={styles.button} onPress={reRequest}>
-        <Text style={styles.buttonText}>Re-request permission</Text>
-      </Pressable>
+      <Text style={styles.logHeader}>Live log</Text>
+      <FlatList
+        style={styles.logList}
+        data={log}
+        keyExtractor={(_, i) => String(i)}
+        renderItem={({ item }) => <Text style={styles.logLine}>{item}</Text>}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: '#0b0b0f', paddingTop: 56, paddingHorizontal: 16, gap: 10 },
+  title: { color: '#f5c518', fontSize: 24, fontWeight: '700' },
+  subtitle: { color: '#8a8a94', fontSize: 13 },
+  row: { backgroundColor: '#17171f', borderRadius: 10, padding: 12, gap: 4 },
+  label: { color: '#8a8a94', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  peers: { color: '#fff', fontSize: 14 },
+  sendRow: { flexDirection: 'row', gap: 8 },
+  input: {
     flex: 1,
-    backgroundColor: '#0b0b0f',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 16,
-  },
-  title: {
-    color: '#f5c518',
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: '#8a8a94',
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  card: {
-    width: '100%',
     backgroundColor: '#17171f',
-    borderRadius: 12,
-    padding: 16,
-    gap: 4,
-  },
-  label: {
-    color: '#8a8a94',
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  value: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  button: {
-    marginTop: 8,
-    backgroundColor: '#f5c518',
     borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  buttonText: {
-    color: '#0b0b0f',
+    paddingHorizontal: 12,
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '700',
   },
+  button: { backgroundColor: '#f5c518', borderRadius: 10, paddingHorizontal: 18, justifyContent: 'center' },
+  buttonText: { color: '#0b0b0f', fontSize: 16, fontWeight: '700' },
+  logHeader: { color: '#8a8a94', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 },
+  logList: { flex: 1, backgroundColor: '#101016', borderRadius: 10, padding: 10 },
+  logLine: { color: '#cfcfd6', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 12, marginBottom: 2 },
 });

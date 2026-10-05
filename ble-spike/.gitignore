@@ -2,6 +2,7 @@
 node_modules/
 .expo/
 dist/
+dist-test/
 web-build/
 
 # Native prebuild output (parent .gitignore only anchors /ios /android at repo root).

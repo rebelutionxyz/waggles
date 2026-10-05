@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2022",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "dist-test",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src/mesh/**/*.ts", "src/ble/protocol.ts"]
+}
