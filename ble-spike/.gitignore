@@ -1,0 +1,18 @@
+# Throwaway BLE spike — local build artifacts, never committed.
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Native prebuild output (parent .gitignore only anchors /ios /android at repo root).
+/ios/
+/android/
+
+*.apk
+*.aab
+*.ipa
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

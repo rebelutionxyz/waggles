@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Waggles BLE Spike",
+    "slug": "waggles-ble-spike",
+    "version": "0.0.0",
+    "scheme": "wagglesble",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.waggles.blespike",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Waggles BLE spike uses Bluetooth to discover and connect to nearby devices for the mesh proving ground.",
+        "NSBluetoothPeripheralUsageDescription": "Waggles BLE spike uses Bluetooth to advertise to nearby devices for the mesh proving ground."
+      }
+    },
+    "android": {
+      "package": "app.waggles.blespike",
+      "permissions": [
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["central", "peripheral"],
+          "bluetoothAlwaysPermission": "Waggles BLE spike uses Bluetooth to discover nearby devices for the mesh proving ground."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

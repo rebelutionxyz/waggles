@@ -1,0 +1,25 @@
+{
+  "name": "waggles-ble-spike",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Throwaway, isolated Expo BLE proving-ground for the Waggles mesh (WAGGLES_SCAFFOLD1). NOT wired to TALK/COMMS. Android-only on-device target via EAS internal distribution.",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "doctor": "expo-doctor"
+  },
+  "dependencies": {
+    "expo": "~52.0.0",
+    "expo-dev-client": "~5.0.0",
+    "expo-status-bar": "~2.0.0",
+    "react": "18.3.1",
+    "react-native": "0.76.9",
+    "react-native-ble-plx": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.12",
+    "typescript": "~5.3.3"
+  }
+}
