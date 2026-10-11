@@ -14,29 +14,35 @@ import { BRAND } from '@/lib/brand';
  * `/manifest.webmanifest` and injects the `<link rel="manifest">` tag, so
  * `layout.tsx` needs no manual link.
  *
- * ICON NOTE: `public/logo.png` is the only brand asset in this repo (and is
- * actually a 1008x1040 JPEG despite its `.png` name/extension — confirmed via
- * its file header, unrelated to this pass, not fixed here). Referenced
- * verbatim below with its real `image/jpeg` type — non-square, not a proper
- * icon set (no 192x192/512x512 square PNGs), so a mobile OS's Home Screen
- * icon will be scaled/cropped rather than pixel-exact. A real icon set is an
- * asset/design task, out of scope for this pass; flagged in the report.
+ * ICON NOTE (WAGGLES_PWA1): the icon set below (icon-192, icon-512, and a
+ * maskable 512) is generated as PLACEHOLDERS from `public/logo.png` — which is
+ * a 1008x1040 JPEG mislabeled `.png` — downscaled (via sharp) onto the brand
+ * background as proper square PNGs. They are installability-correct but are
+ * NOT the final brand icons; a real, purpose-drawn icon set is a later design
+ * task (see the WAGGLES_PWA1 report).
+ *
+ * basePath-aware: Waggles may be served under NEXT_PUBLIC_BASE_PATH, so icon
+ * `src`, `start_url`, `scope` and `id` are all prefixed with it.
  */
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: `${BASE}/`,
     name: `${BRAND.name} — ${BRAND.product}`,
     short_name: BRAND.name,
     description: BRAND.description,
-    start_url: '/',
+    start_url: `${BASE}/`,
+    scope: `${BASE}/`,
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#07080A',
-    theme_color: '#00B1D7',
+    theme_color: '#07080A',
+    categories: ['communication', 'social'],
     icons: [
-      {
-        src: '/logo.png',
-        sizes: '1008x1040',
-        type: 'image/jpeg',
-      },
+      { src: `${BASE}/icon-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: `${BASE}/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: `${BASE}/icon-maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
