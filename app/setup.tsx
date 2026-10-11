@@ -52,8 +52,9 @@ export default function Setup() {
       >
         <Text style={{ fontSize: 34, fontWeight: '800', color: t.text }}>Waggles</Text>
         <Text style={{ fontSize: 15, color: t.textDim, lineHeight: 22 }}>
-          A sovereign, end-to-end-encrypted messenger. Point it at your own HONEYCOMB comms backend —
-          your keys, your server, your messages. Nothing routes through us.
+          A sovereign, end-to-end-encrypted messenger. Point it at your own comms server — your
+          private keys stay on this device; the server you choose stores only ciphertext. Nothing
+          routes through us.
         </Text>
 
         <View style={{ gap: 6, marginTop: 12 }}>
