@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,13 +12,22 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSupabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 
 export default function SignIn() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [stage, setStage] = useState<'email' | 'code'>('email');
+
+  // WAGGLES_LOGINLOOP1 — navigate only once AuthProvider actually holds the
+  // session. verifyOtp succeeds on the server, but router.replace fired
+  // immediately raced the auth-state update, bouncing back to sign-in.
+  useEffect(() => {
+    if (session) router.replace('/');
+  }, [session, router]);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -51,7 +60,7 @@ export default function SignIn() {
         type: 'email',
       });
       if (error) throw error;
-      router.replace('/');
+      // Navigation handled by the session effect above — avoids the bounce race.
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'That code did not work.');
     } finally {

@@ -260,24 +260,54 @@ export async function rekeyConversation(
 }
 
 // ── message body encrypt / decrypt ───────────────────────────────────────────
-const ENC_PREFIX = 'e2ee:v1:';
+const ENC_PREFIX = 'e2ee:v1:'; // AEAD xchacha20poly1305_ietf (web-interop format)
+// WAGGLES_SBFALLBACK1 — some react-native-libsodium builds do not expose the
+// AEAD body cipher at runtime (crypto_aead_xchacha20poly1305_ietf_encrypt is
+// undefined on device), while crypto_box_seal / crypto_secretbox ARE present.
+// So the body layer prefers AEAD (keeps byte-identical interop with the web
+// client) and falls back to secretbox (XSalsa20-Poly1305) when AEAD is missing.
+// Same 32-byte key, same 24-byte nonce, so nothing else changes.
+const ENC_PREFIX_SB = 'e2ee:sb1:';
 
 export function isEncryptedBody(body: string): boolean {
-  return typeof body === 'string' && body.startsWith(ENC_PREFIX);
+  return typeof body === 'string' && (body.startsWith(ENC_PREFIX) || body.startsWith(ENC_PREFIX_SB));
+}
+
+// biome-ignore lint: runtime capability probe for an optional native binding
+function hasAead(sodium: any): boolean {
+  return typeof sodium?.crypto_aead_xchacha20poly1305_ietf_encrypt === 'function'
+    && typeof sodium?.crypto_aead_xchacha20poly1305_ietf_decrypt === 'function';
 }
 
 export async function encryptBody(ck: Uint8Array, plaintext: string): Promise<string> {
   const sodium = await S();
-  const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-  const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(sodium.from_string(plaintext), null, null, nonce, ck);
+  const msg = sodium.from_string(plaintext);
+  if (hasAead(sodium)) {
+    const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+    const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(msg, null, null, nonce, ck);
+    const packed = new Uint8Array(nonce.length + ct.length);
+    packed.set(nonce, 0);
+    packed.set(ct, nonce.length);
+    return ENC_PREFIX + sodium.to_base64(packed, sodium.base64_variants.ORIGINAL);
+  }
+  // fallback: secretbox (XSalsa20-Poly1305) — 32B key, 24B nonce, like the AEAD above.
+  const nonce = sodium.randombytes_buf(sodium.crypto_secretbox_NONCEBYTES);
+  const ct = sodium.crypto_secretbox_easy(msg, nonce, ck);
   const packed = new Uint8Array(nonce.length + ct.length);
   packed.set(nonce, 0);
   packed.set(ct, nonce.length);
-  return ENC_PREFIX + sodium.to_base64(packed, sodium.base64_variants.ORIGINAL);
+  return ENC_PREFIX_SB + sodium.to_base64(packed, sodium.base64_variants.ORIGINAL);
 }
 
 export async function decryptBody(ck: Uint8Array, body: string): Promise<string> {
   const sodium = await S();
+  if (body.startsWith(ENC_PREFIX_SB)) {
+    const packed = sodium.from_base64(body.slice(ENC_PREFIX_SB.length), sodium.base64_variants.ORIGINAL);
+    const n = sodium.crypto_secretbox_NONCEBYTES;
+    const nonce = packed.slice(0, n);
+    const ct = packed.slice(n);
+    return sodium.to_string(sodium.crypto_secretbox_open_easy(ct, nonce, ck));
+  }
   const packed = sodium.from_base64(body.slice(ENC_PREFIX.length), sodium.base64_variants.ORIGINAL);
   const npub = sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
   const nonce = packed.slice(0, npub);
