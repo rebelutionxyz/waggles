@@ -57,7 +57,11 @@ export default function CallRoute() {
         setMe(bee);
         let key: string | null;
         if (isHost) {
-          key = await hostSealRoomCallKey(roomId, bee, 1);
+          // Seal at currentEpoch+1, not a hardcoded 1: a resumed/reused room may
+          // already have call_key_epoch>0, and comms_put_call_keys rejects a
+          // backwards epoch. Fresh room (epoch 0) -> 1, as before.
+          const cur = await currentCallEpoch(roomId);
+          key = await hostSealRoomCallKey(roomId, bee, cur + 1);
         } else {
           // Become a room participant FIRST, so the host's roster reseal (below)
           // includes this device and awaitMyCallKey can then read our sealed key.

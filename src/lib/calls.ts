@@ -63,11 +63,15 @@ export async function createCallRoom(
     p_max: CALL_MAX_PARTICIPANTS,
   });
   if (error) throw error;
-  const r = data as { room_id: string; livekit_room: string; reused?: boolean };
+  const r = data as { room_id: string; livekit_room: string; reused?: boolean; host?: boolean };
   if (!r?.room_id) throw new Error('comms_room_create returned no room id.');
-  // reused=true means a live room already existed (someone else is host) → I join;
-  // reused=false means I created it → I am the host (I seal the first key).
-  return { roomId: r.room_id, livekitRoom: r.livekit_room, host: !r.reused };
+  // WAGGLES_ROOMLIFECYCLE1: the server now decides host vs joiner by HOST PRESENCE
+  // (only the host can seal the CCK). It returns an explicit `host` flag:
+  //   fresh room, or I'm the host reconnecting → host:true (I seal at epoch+1);
+  //   genuine live room hosted by someone present → host:false (they reseal for me).
+  // Fall back to !reused for older backends that don't send `host`.
+  const host = typeof r.host === 'boolean' ? r.host : !r.reused;
+  return { roomId: r.room_id, livekitRoom: r.livekit_room, host };
 }
 
 export async function joinRoom(roomId: string, role = 'speaker'): Promise<void> {
