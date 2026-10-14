@@ -6,26 +6,94 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth';
 import { ANON_KEY_PREFILL, HOST_URL_PREFILL, setHostConfig } from '@/lib/config';
 import { useTheme } from '@/lib/theme';
+
+/**
+ * WAGGLES_QR1 — a deployment's {url, anonKey} can be handed to a Bee as a QR so
+ * they never type a long anon key. An operator (or the "use our network" flow)
+ * shows the code; the Bee taps "Scan QR" here and the fields fill. The QR payload
+ * is a tiny JSON object: {"url":"https://…","anonKey":"eyJ…"}. We also accept a
+ * bare https URL (fills the host only) so a plain project-URL QR still helps.
+ * Nothing here is a secret — the anon key is a public, RLS-gated client key.
+ */
+function parseConfigQr(raw: string): { url?: string; anonKey?: string } | null {
+  const text = raw.trim();
+  try {
+    const o = JSON.parse(text) as Record<string, unknown>;
+    const url = typeof o.url === 'string' ? o.url : undefined;
+    const anonKey =
+      typeof o.anonKey === 'string'
+        ? o.anonKey
+        : typeof o.anon === 'string'
+          ? o.anon
+          : undefined;
+    if (url || anonKey) return { url, anonKey };
+  } catch {
+    /* not JSON — fall through */
+  }
+  try {
+    const u = new URL(text);
+    const url = u.searchParams.get('u') ?? u.searchParams.get('url') ?? undefined;
+    const anonKey = u.searchParams.get('k') ?? u.searchParams.get('anonKey') ?? undefined;
+    if (url || anonKey) return { url: url ?? undefined, anonKey: anonKey ?? undefined };
+    if (/^https?:\/\//i.test(text)) return { url: text };
+  } catch {
+    if (/^https?:\/\//i.test(text)) return { url: text };
+  }
+  return null;
+}
 
 export default function Setup() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { reconnect } = useAuth();
-  // Empty unless an operator set EXPO_PUBLIC_WAGGLES_HOST_URL for their own
-  // deployment. No vendor default — see lib/config.ts (WAGGLES_F2, ruling #4).
   const [url, setUrl] = useState(HOST_URL_PREFILL);
   const [anonKey, setAnonKey] = useState(ANON_KEY_PREFILL);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const [perm, requestPerm] = useCameraPermissions();
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
+
+  async function openScanner() {
+    setErr(null);
+    setScanNote(null);
+    if (!perm?.granted) {
+      const res = await requestPerm();
+      if (!res.granted) {
+        setErr('Camera permission is needed to scan a setup code.');
+        return;
+      }
+    }
+    setScanning(true);
+  }
+
+  function onScanned(result: BarcodeScanningResult) {
+    const parsed = parseConfigQr(result.data);
+    setScanning(false);
+    if (!parsed) {
+      setScanNote("That code isn't a Waggles setup code.");
+      return;
+    }
+    if (parsed.url) setUrl(parsed.url);
+    if (parsed.anonKey) setAnonKey(parsed.anonKey);
+    setScanNote(
+      parsed.url && parsed.anonKey
+        ? 'Filled from the code — tap Connect.'
+        : 'Filled part of the setup from the code.',
+    );
+  }
 
   async function connect() {
     setErr(null);
@@ -39,6 +107,39 @@ export default function Setup() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (scanning) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={onScanned}
+        />
+        <View style={{ position: 'absolute', top: insets.top + 24, left: 0, right: 0, alignItems: 'center' }}>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+            Point at your Waggles setup code
+          </Text>
+        </View>
+        <View style={{ position: 'absolute', bottom: insets.bottom + 32, left: 24, right: 24 }}>
+          <Pressable
+            onPress={() => setScanning(false)}
+            style={{
+              backgroundColor: t.surface,
+              borderColor: t.border,
+              borderWidth: 1,
+              borderRadius: 14,
+              paddingVertical: 16,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: t.text, fontWeight: '700', fontSize: 16 }}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -57,7 +158,22 @@ export default function Setup() {
           routes through us.
         </Text>
 
-        <View style={{ gap: 6, marginTop: 12 }}>
+        <Pressable
+          onPress={openScanner}
+          style={{
+            borderColor: t.accent,
+            borderWidth: 1,
+            borderRadius: 14,
+            paddingVertical: 14,
+            alignItems: 'center',
+            marginTop: 8,
+          }}
+        >
+          <Text style={{ color: t.accent, fontWeight: '700', fontSize: 15 }}>Scan setup code</Text>
+        </Pressable>
+        {scanNote ? <Text style={{ color: t.textDim, fontSize: 13 }}>{scanNote}</Text> : null}
+
+        <View style={{ gap: 6, marginTop: 4 }}>
           <Text style={{ color: t.textDim, fontSize: 13, fontWeight: '600' }}>Endpoint URL</Text>
           <TextInput
             value={url}

@@ -142,21 +142,29 @@ export default function Thread() {
     const body = text.trim();
     if (!body) return;
     setText('');
+
     try {
       await sendMessage(conversationId, body, 'text');
       await refreshMessages();
-    } catch {
-      // offline or key not ready — queue it
-      const item: OutboxItem = {
-        id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-        conversationId,
-        body,
-        replyTo: null,
-        createdAt: new Date().toISOString(),
-      };
-      await enqueueOutbox(item);
-      setPending((p) => [...p, { ...item, pending: true }]);
+    } catch (e) {
+      // WAGGLES_DIAG1 — surface the real failure instead of silently queuing.
+      Alert.alert('Message not sent', e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+      try {
+        const item: OutboxItem = {
+          id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+          conversationId,
+          body,
+          replyTo: null,
+          createdAt: new Date().toISOString(),
+        };
+        await enqueueOutbox(item);
+        setPending((p) => [...p, { ...item, pending: true }]);
+      } catch {
+        /* outbox best-effort */
+      }
     }
+
+
   }
 
   async function sendMediaPayload(payload: CommsMediaPayload) {

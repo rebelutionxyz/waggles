@@ -7,22 +7,46 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.waggles.messenger"
+      "bundleIdentifier": "app.waggles.messenger",
+      "bitcode": false
     },
     "android": {
-      "package": "app.waggles.messenger"
+      "package": "app.waggles.messenger",
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-dev-client",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": false
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "9f584594-cf48-454d-888a-5f62512a80d1"
+      }
+    },
+    "owner": "iwebmaster"
   }
 }

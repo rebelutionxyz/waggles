@@ -38,3 +38,7 @@ REPORT.md
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# GIT_COMMIT1 (2026-10-06): Supabase CLI local state — never commit (pooler-url /
+# project-ref carry connection/project identifiers).
+supabase/.temp/
