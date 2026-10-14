@@ -83,6 +83,14 @@ export async function leaveRoom(roomId: string): Promise<void> {
   await getSupabase().rpc('comms_room_leave', { p_room_id: roomId });
 }
 
+/** Liveness heartbeat (WAGGLES_ROOMLIFECYCLE2). The call screen pings this every
+ *  ~15s; a crashed/closed app stops pinging and comms_rooms_reap ends its stale
+ *  room (left_at IS NULL AND last_seen > now()-45s = alive), so a later caller is
+ *  never stranded on the joiner path with a dead host. Best-effort; never throws. */
+export async function roomHeartbeat(roomId: string): Promise<void> {
+  await getSupabase().rpc('comms_room_heartbeat', { p_room_id: roomId });
+}
+
 /** Mint a room-scoped LiveKit token via the fork's livekit-token edge fn. The
  *  caller must already be a comms_room_participants row. */
 export async function getRoomToken(roomId: string): Promise<RoomToken> {

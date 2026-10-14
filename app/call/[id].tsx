@@ -19,6 +19,7 @@ import {
   joinRoom,
   leaveRoom,
   myBeeId,
+  roomHeartbeat,
 } from '@/lib/calls';
 import { useTheme } from '@/lib/theme';
 
@@ -212,6 +213,14 @@ function CallStage({
   useEffect(() => {
     void room.setE2EEEnabled(true).catch(() => {});
   }, [room]);
+
+  // Liveness heartbeat (WAGGLES_ROOMLIFECYCLE2): ping every 15s so a crash/close is
+  // detected server-side and the room is reaped, never left stale 'live'.
+  useEffect(() => {
+    void roomHeartbeat(roomId).catch(() => {});
+    const iv = setInterval(() => void roomHeartbeat(roomId).catch(() => {}), 15000);
+    return () => clearInterval(iv);
+  }, [roomId]);
 
   // (a) EVERYONE: re-key when the sealed-key epoch advances.
   // (b) HOST: reseal at epoch+1 on any participant join/leave (forward secrecy).
