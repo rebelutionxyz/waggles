@@ -33,6 +33,48 @@ function uniq(ids: string[]) {
   return Array.from(new Set(ids));
 }
 
+// WAGGLES_UTF8_1 — react-native-libsodium's on-device build (lib.native) does
+// NOT expose from_string / to_string, so sodium.from_string(...) was undefined
+// and every body encrypt threw "undefined is not a function" (keys are raw
+// bytes, so they were unaffected). These self-contained UTF-8 helpers replace
+// sodium.from_string / sodium.to_string everywhere in this file.
+function utf8Encode(s: string): Uint8Array {
+  if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s);
+  const out: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    else if (c >= 0xd800 && c <= 0xdbff) {
+      const c2 = s.charCodeAt(++i);
+      c = 0x10000 + ((c & 0x3ff) << 10) + (c2 & 0x3ff);
+      out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    } else {
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    }
+  }
+  return new Uint8Array(out);
+}
+function utf8Decode(b: Uint8Array): string {
+  if (typeof TextDecoder !== 'undefined') return new TextDecoder().decode(b);
+  let s = '';
+  let i = 0;
+  while (i < b.length) {
+    const c = b[i++];
+    if (c < 0x80) s += String.fromCharCode(c);
+    else if (c < 0xe0) s += String.fromCharCode(((c & 0x1f) << 6) | (b[i++] & 0x3f));
+    else if (c < 0xf0)
+      s += String.fromCharCode(((c & 0x0f) << 12) | ((b[i++] & 0x3f) << 6) | (b[i++] & 0x3f));
+    else {
+      const cp =
+        ((c & 0x07) << 18) | ((b[i++] & 0x3f) << 12) | ((b[i++] & 0x3f) << 6) | (b[i++] & 0x3f);
+      const u = cp - 0x10000;
+      s += String.fromCharCode(0xd800 + (u >> 10), 0xdc00 + (u & 0x3ff));
+    }
+  }
+  return s;
+}
+
 // ── device-local secret store (OS keystore + AsyncStorage) ───────────────────
 // SECRET key → expo-secure-store (Keychain/Keystore, hardware-backed where
 // available). Public key + device id → AsyncStorage (they are public). This is
@@ -281,7 +323,7 @@ function hasAead(sodium: any): boolean {
 
 export async function encryptBody(ck: Uint8Array, plaintext: string): Promise<string> {
   const sodium = await S();
-  const msg = sodium.from_string(plaintext);
+  const msg = utf8Encode(plaintext);
   if (hasAead(sodium)) {
     const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
     const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(msg, null, null, nonce, ck);
@@ -306,14 +348,14 @@ export async function decryptBody(ck: Uint8Array, body: string): Promise<string>
     const n = sodium.crypto_secretbox_NONCEBYTES;
     const nonce = packed.slice(0, n);
     const ct = packed.slice(n);
-    return sodium.to_string(sodium.crypto_secretbox_open_easy(ct, nonce, ck));
+    return utf8Decode(sodium.crypto_secretbox_open_easy(ct, nonce, ck));
   }
   const packed = sodium.from_base64(body.slice(ENC_PREFIX.length), sodium.base64_variants.ORIGINAL);
   const npub = sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
   const nonce = packed.slice(0, npub);
   const ct = packed.slice(npub);
   const pt = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, null, nonce, ck);
-  return sodium.to_string(pt);
+  return utf8Decode(pt);
 }
 
 // ── file-level encryption (WAGGLES_MEDIA1) ───────────────────────────────────
@@ -364,7 +406,7 @@ async function getCacheKey(): Promise<Uint8Array> {
 export async function sealCache(plaintext: string): Promise<string> {
   const sodium = await S();
   const cek = await getCacheKey();
-  const packed = await encryptBytes(cek, sodium.from_string(plaintext));
+  const packed = await encryptBytes(cek, utf8Encode(plaintext));
   return CACHE_ENC_PREFIX + sodium.to_base64(packed, sodium.base64_variants.ORIGINAL);
 }
 
@@ -380,7 +422,7 @@ export async function openCache(stored: string): Promise<string | null> {
     const sodium = await S();
     const cek = await getCacheKey();
     const packed = sodium.from_base64(stored.slice(CACHE_ENC_PREFIX.length), sodium.base64_variants.ORIGINAL);
-    return sodium.to_string(await decryptBytes(cek, packed));
+    return utf8Decode(await decryptBytes(cek, packed));
   } catch {
     return null;
   }
@@ -424,7 +466,7 @@ export async function computeSafetyNumber(beeIds: string[]): Promise<string> {
   const rows = ((data ?? []) as { bee_id: string; public_key: string }[])
     .map((r) => `${r.bee_id}:${r.public_key}`)
     .sort();
-  const digest = sodium.crypto_generichash(30, sodium.from_string(rows.join('|')), null);
+  const digest = sodium.crypto_generichash(30, utf8Encode(rows.join('|')), null);
   const groups: string[] = [];
   for (let i = 0; i < 30; i += 5) {
     let n = 0;
