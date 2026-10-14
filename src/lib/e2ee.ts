@@ -326,7 +326,9 @@ export async function encryptBody(ck: Uint8Array, plaintext: string): Promise<st
   const msg = utf8Encode(plaintext);
   if (hasAead(sodium)) {
     const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-    const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(msg, null, null, nonce, ck);
+    // additional_data MUST be a string on the native build ('' === no AAD,
+    // identical to null in libsodium, so web-client interop is preserved).
+    const ct = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(msg, '', null, nonce, ck);
     const packed = new Uint8Array(nonce.length + ct.length);
     packed.set(nonce, 0);
     packed.set(ct, nonce.length);
@@ -354,7 +356,7 @@ export async function decryptBody(ck: Uint8Array, body: string): Promise<string>
   const npub = sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
   const nonce = packed.slice(0, npub);
   const ct = packed.slice(npub);
-  const pt = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, null, nonce, ck);
+  const pt = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(null, ct, '', nonce, ck);
   return utf8Decode(pt);
 }
 
