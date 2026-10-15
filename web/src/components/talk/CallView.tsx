@@ -382,6 +382,7 @@ export function CallView({
       >
         {!video && phone ? <AudioStage peerName={peerName} handles={handles} /> : <VideoConference />}
         <RoomAudioRenderer />
+        <CallDiag />
         <AudioDevicePicker />
         <CallEndWatcher enabled={!!endWhenAlone} onEmpty={close} />
         {e2eeKey && <EncryptionBadge />}
@@ -752,6 +753,44 @@ function AudioDevicePicker() {
       </div>
     </div>
   );
+}
+
+function CallDiag() {
+  const room = useRoomContext();
+  useEffect(() => {
+    if (!room) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onEnc = (...a: any[]) => console.warn('[waggles-call] EncryptionError', ...a);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onSub = (track: any, _pub: any, participant: any) =>
+      console.warn('[waggles-call] TrackSubscribed', participant?.identity, track?.kind, 'enc=', participant?.isEncrypted);
+    room.on(RoomEvent.EncryptionError, onEnc);
+    room.on(RoomEvent.TrackSubscribed, onSub);
+    const id = window.setInterval(() => {
+      const rem = Array.from(room.remoteParticipants.values());
+      console.warn(
+        '[waggles-call] remotes',
+        JSON.stringify(
+          rem.map((p) => ({
+            id: p.identity,
+            enc: p.isEncrypted,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            tracks: Array.from(p.trackPublications.values()).map((t: any) => ({
+              kind: t.kind,
+              sub: t.isSubscribed,
+              muted: t.isMuted,
+            })),
+          })),
+        ),
+      );
+    }, 3000);
+    return () => {
+      room.off(RoomEvent.EncryptionError, onEnc);
+      room.off(RoomEvent.TrackSubscribed, onSub);
+      clearInterval(id);
+    };
+  }, [room]);
+  return null;
 }
 
 function Shell({ children }: { children: React.ReactNode }) {

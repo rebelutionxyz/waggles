@@ -269,6 +269,7 @@ export interface IncomingCallEvent {
   conversationId: string | null;
   title: string | null;
   startedAt: string;
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE' | string;
 }
 
 export function subscribeIncomingCalls(
@@ -285,7 +286,7 @@ export function subscribeIncomingCalls(
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'comms_rooms' },
-      (payload: { new?: Record<string, unknown> }) => {
+      (payload: { eventType?: string; new?: Record<string, unknown> }) => {
         const r = (payload.new ?? {}) as {
           id?: string;
           host_bee_id?: string;
@@ -304,6 +305,7 @@ export function subscribeIncomingCalls(
           conversationId: r.conversation_id ?? null,
           title: r.title ?? null,
           startedAt: r.started_at ?? '',
+          eventType: payload.eventType ?? 'UPDATE',
         });
       },
     )

@@ -357,6 +357,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
         if (incomingRef.current?.roomId === e.roomId) dismissIncoming('missed');
         return;
       }
+      // Only a NEW room (INSERT) rings. An UPDATE to a still-live room (e.g. the
+      // host resealing / epoch bump) must NOT re-ring a call I just left.
+      if (e.eventType !== 'INSERT') return;
       if (e.hostBeeId === beeId) return;
       if (activeRef.current) return;
       if (incomingRef.current?.roomId === e.roomId) return;
