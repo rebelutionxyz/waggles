@@ -31,6 +31,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { ProfilePanel } from '@/components/shell/ProfilePanel';
+import { CallProvider } from '@/components/talk/CallProvider';
 import { useSession } from '@/lib/auth';
 
 interface NavItem {
@@ -120,7 +121,9 @@ export function TalkShell({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      <main className="waggle-content">{children}</main>
+      <main className="waggle-content">
+        <CallProvider>{children}</CallProvider>
+      </main>
 
       {profileOpen && (
         <div className="waggle-panel" role="dialog" aria-label={session.signedIn ? 'Your seat' : 'Sign in'}>

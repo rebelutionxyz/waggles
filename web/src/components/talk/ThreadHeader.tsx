@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useTalkData } from '@/lib/data/provider';
 import { conversationTitle, type TalkConversation, type TalkMessage, type TalkPin } from '@/lib/contract';
 import styles from './ThreadHeader.module.css';
+import { useCall } from './CallProvider';
 
 const DISAPPEAR_OPTIONS: { label: string; seconds: number | null }[] = [
   { label: 'Off', seconds: null },
@@ -33,6 +34,7 @@ interface ThreadHeaderProps {
 
 export function ThreadHeader({ conversation, myBeeId, messages, onJumpTo, onConversationChanged }: ThreadHeaderProps) {
   const data = useTalkData();
+  const call = useCall();
   const [panel, setPanel] = useState<'none' | 'pins' | 'manage' | 'safety'>('none');
   const [pins, setPins] = useState<TalkPin[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,15 +76,36 @@ export function ThreadHeader({ conversation, myBeeId, messages, onJumpTo, onConv
     }
   };
 
-  // Calls are F6 in the fork; v1 MVP is E2EE 1:1 text, so the call buttons
-  // that used to sit in this header are gone rather than firing into a
-  // backend with no comms_room_*/comms_call_* RPCs.
+  // WAGGLES_WEBCALLS1: E2EE calls over the fork's comms_room_* RPCs + LiveKit.
+  const startCall = (video: boolean) => {
+    call
+      .startCall(conversation.id, video, title, conversation.kind === 'group')
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not start the call.'));
+  };
 
   return (
     <div className={styles.head}>
       <div className={styles.row}>
         <span className={styles.title}>{title}</span>
         <div className={styles.actions}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            title="Voice call"
+            disabled={busy}
+            onClick={() => startCall(false)}
+          >
+            📞
+          </button>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            title="Video call"
+            disabled={busy}
+            onClick={() => startCall(true)}
+          >
+            🎥
+          </button>
           <button
             type="button"
             className={styles.iconBtn}
@@ -182,6 +205,7 @@ function GroupManagePanel({
   onChanged: () => void;
 }) {
   const data = useTalkData();
+  const call = useCall();
   const [handle, setHandle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -295,6 +319,7 @@ function SafetyPanel({
   onChanged: () => void;
 }) {
   const data = useTalkData();
+  const call = useCall();
   const [blocked, setBlocked] = useState<boolean | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [error, setError] = useState<string | null>(null);

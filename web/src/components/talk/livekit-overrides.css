@@ -1,0 +1,32 @@
+/* TALK_CALLS1 — ported verbatim from TheMANUAL.tech's
+ * src/components/comms/livekit-overrides.css (COMMS_ROOMS1). A SCOPED
+ * override layer on top of @livekit/components-styles (CallView.tsx imports
+ * this immediately after it), never a rewrite of the prefab. Everything here
+ * is scoped under [data-lk-theme="default"] — the attribute CallView.tsx's
+ * own wrapper div already sets — so it can only ever affect LiveKit's own
+ * UI, never leak onto the rest of the app.
+ *
+ * TWO measured defects (owner device test, desktop → iPhone 12), carried
+ * over unchanged since this is the SAME @livekit/components-styles package:
+ *
+ * 1. SQUARE, NOT ROUNDED — every `.lk-button` / `.lk-disconnect-button` /
+ *    `.lk-chat-toggle` / `.lk-start-audio-button` in the package shares ONE
+ *    border-radius source: the `--lk-border-radius` custom property.
+ * 2. THE CUT-OFF CONTROL BAR — `.lk-control-bar` is `display:flex` with no
+ *    `flex-wrap`/`overflow-x`, so a narrow viewport clips the buttons past
+ *    the container edge instead of scrolling to reveal them.
+ */
+
+[data-lk-theme='default'] {
+  --lk-border-radius: 2px;
+}
+
+[data-lk-theme='default'] .lk-control-bar {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-lk-theme='default'] .lk-control-bar > * {
+  flex-shrink: 0;
+}
