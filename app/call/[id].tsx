@@ -236,7 +236,14 @@ function CallStage({
           const prev = payload.old?.call_key_epoch;
           if (typeof next !== 'number' || next === prev) return;
           void awaitMyCallKey(roomId, meBeeId).then((got) => {
-            if (live && got) void keyProvider.setSharedKey(got.key, got.epoch).catch(() => {});
+            // WAGGLES_CALLS_KEYIDX1: ALWAYS key index 0 — never index=epoch. The web
+            // endpoint (livekit-client ExternalE2EEKeyProvider.setKey) only ever writes
+            // and reads index 0, and RNKeyProvider.setSharedKey never advances the
+            // sender cryptor's index (getLatestKeyIndex stays 0). Keying at index=epoch
+            // left this device ENCRYPTING with the stale epoch-1 key at index 0 after
+            // every reseal -> the web peer's InvalidKey on every frame. Derivation is
+            // already identical on both SDKs (PBKDF2/SHA-256/100k/LKFrameEncryptionKey).
+            if (live && got) void keyProvider.setSharedKey(got.key).catch(() => {});
           });
         },
       )
